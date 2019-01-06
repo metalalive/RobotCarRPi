@@ -35,7 +35,7 @@ DEFINE_CC_PARAMS  ?=
 
 PREFIX_CC_DEFINE_PARAMS  =  $(foreach item, $(DEFINE_CC_PARAMS),  -D$(item) )
 
-CC_OPTIONS = -Wall  -nostartfiles -c -g  -std=c++11  -pthread \
+CC_OPTIONS = -Wall  -nostartfiles -c -g  -std=c++11 -D_GLIBCXX_USE_CXX11_ABI=1 -pthread \
               -Wfatal-errors
 
 
@@ -56,6 +56,9 @@ clean:
 
 help:
 	@echo "----- help document -----"
+	@echo ""
+	@echo "g++ version 6.3.0 is suggested in Raspbain Stretch. "
+	@echo ""
 	@echo "make train.out "
 	@echo ""
 	@echo "make lane_prediction_test.out  "

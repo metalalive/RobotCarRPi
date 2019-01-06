@@ -17,7 +17,9 @@
 #include "tensorflow/core/public/session_options.h"
 
 #include "tensorflow/core/framework/tensor.h"
+#ifndef HOST_OS_RPI
 #include "tensorflow/core/util/tensor_slice_writer.h"
+#endif // end of n HOST_OS_RPI
 #include "tensorflow/core/util/tensor_slice_reader.h"
 
 #include <dataset_handler.h>

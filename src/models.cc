@@ -31,6 +31,7 @@ models::~models()
 
 void models::build ()
 {
+#ifndef HOST_OS_RPI
     int num_fc_inl = __hyparams_int["num_fc_inl"];
     int num_fc_l1  = __hyparams_int["num_fc_l1"];
     int num_fc_l2  = __hyparams_int["num_fc_l2"];
@@ -189,6 +190,7 @@ void models::build ()
     tensorflow::Output grad_b3 = tensorflow::ops::ApplyGradientDescent( root.WithOpName("grad_b3"), b3, learning_rate, {grad_out[5]} );    
 
     TF_CHECK_OK(root.ToGraphDef(&__graph));
+#endif // end of n HOST_OS_RPI
 }
 
 
@@ -466,6 +468,7 @@ float models::get_loss ()
 //
 int models::save_to_file()
 {
+#ifndef HOST_OS_RPI
     std::vector<tensorflow::Tensor>  trained_param_vals;
     float min_accurancy = 9999.99;
     unsigned int   min_accurancy_idx = 0;
@@ -519,6 +522,7 @@ int models::save_to_file()
         std::cout << "[ERROR] session #"<< min_accurancy_idx <<" is NOT available." << std::endl;
         return 1;
     }
+#endif // end of n HOST_OS_RPI
     return 0;
 }
 
