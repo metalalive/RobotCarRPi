@@ -1,54 +1,138 @@
-To run the lane detection application on Raspberry Pi (3b+, in my case), we need:
+To run the lane detection application on Raspberry Pi (3b+, in my case), we need to build following libraries from source:
 
 ##### OpenCV c++ library (v3.3.0 or 4.0.0): 
-see installation guidiance [here](https://www.pyimagesearch.com/2018/09/26/install-opencv-4-on-your-raspberry-pi/), it's ok to skip python part since we won't run python code on target Raspberry Pi.
+see installation guide [here](https://www.pyimagesearch.com/2018/09/26/install-opencv-4-on-your-raspberry-pi/), it's OK to skip python part since we won't run python code on target Raspberry Pi.
 
 
 ##### Tensorflow C++ library (v1.11 or 1.12): 
-the hardest part is right here, since there is no convenient package for C++ developers ...
-###### Build Bazel from source (unfortunately no other easier way to doing this)
-we managed to build bazel 0.17.0 for tensorflow v1.11, and build bazel 0.19.2 for tensorflow v1.12,
-download bazel source from [HERE](https://github.com/bazelbuild/bazel/releases)
-in command-line interface, you have:
-```
-wget https://github.com/bazelbuild/bazel/releases/download/0.19.2/bazel-0.19.2-dist.zip
-unzip -qq bazel-0.19.2-dist.zip -d bazel-0.19.2
-cd bazel-0.19.2
-sudo chmod u+w ./* -R
-```
+The hardest part right here, since there is no convenient pre-built package for C++ developers on the intenet. 
+In my case I train the neural network model on Ubuntu 14.04 using tensorflow v1.11, save the model then load it on Raspbian 9 (Stretch), run prediction code using tensorflow v1.12.
 
-the environment variable will be referenced when building bazel binary...
-set java heap to 1 GB to avoid Java out-of-memory exception turns up
+Here are few general steps to build the tensorflow library which works for C++ application:
+
+###### (1) Build Bazel from source
+Build bazel 0.17.0 for tensorflow v1.11, and build bazel 0.19.2 for tensorflow v1.12,
+Be sure to download release version to avoid building issues, see all available release versions from [HERE](https://github.com/bazelbuild/bazel/releases)
+
+- In command-line interface, you have:
+   ```Shell
+   wget https://github.com/bazelbuild/bazel/releases/download/0.19.2/bazel-0.19.2-dist.zip
+   unzip -qq bazel-0.19.2-dist.zip -d bazel-0.19.2
+   cd bazel-0.19.2
+   sudo chmod u+w ./* -R
+   ```
+
+- following environment variable will be referenced when building bazel binary, set java heap to 1 GB to avoid Java out-of-memory exception. If out-of-memory exception still turns up and you're sure to add this option, maybe you can try increasing Java heap space e.g. -J-Xmx2g
 ```
 export BAZEL_JAVAC_OPT="-J-Xmx1g "
 ```
-then 
+- then start building from source, it takes several hours.
 ```
 ./compile.sh
 ```
-after compilation finished, copy the binary to :
+- after compilation finished, copy the binary to :
+   ```
+   sudo cp output/bazel /usr/local/bin/bazel
+   ```
+
+
+###### use compiled Bazel binary to build tensorflow C++ API from source
+check out tensorflow repository then roll back to previous release version v1.12 (commit ID: a6d8ffa)
 ```
-sudo cp output/bazel /usr/local/bin/bazel
+git clone https://github.com/tensorflow/tensorflow.git
+cd tensorflow
+git checkout r1.12
+```
+you can recheck if you're already under v1.12 release branch using git branch or git log.
+
+
+According to [issue #24372](https://github.com/tensorflow/tensorflow/issues/24372), we must apply 2 patches downloaded from [HERE](https://gist.github.com/fyhertz/4cef0b696b37d38964801d3ef21e8ce2).
+
+download the zip file, extract, then apply
+```
+git am YOUR_PATCH_NAME.patch
 ```
 
-I was hitting compile error when trying up-to-date Bazel 0.21.0, therefore I recommend bazel 0.19.2 for tensorflow 1.12
+clean up previous build
+```
+bazel clean --expunge
+```
 
-
-###### use compiled Bazel binary file to build tensorflow C++ API from source
-download tensorflow 1.12 source, extract it, switch to the folder, do the followings :
+type ./configure , here is my configuration:
 ```
 ./configure
-```
-manually comment off the options in .bazelrc (see [issue #24416](https://github.com/tensorflow/tensorflow/pull/24416))
-```
-build --define=tensorflow_mkldnn_contraction_kernel=0
-```
-then start building (this could take several hours)
-```
-bazel build -c opt --copt="-mfpu=neon-vfpv4" --copt="-funsafe-math-optimizations" --copt="-ftree-vectorize" --copt="-fomit-frame-pointer" --config=noaws --define=grpc_no_ares=true --config=monolithic --copt=-DRASPBERRY_PI --local_resources 1024,1.0,1.0 --verbose_failures //tensorflow:libtensorflow_cc.so  2>&1 | tee ./tf_nativebuild.log
+You have bazel 0.19.2- (@non-git) installed.
+Please specify the location of python. [Default is /usr/bin/python]:
+
+
+Found possible Python library paths:
+  /usr/local/lib/python2.7/dist-packages
+  /usr/lib/python2.7/dist-packages
+Please input the desired Python library path to use.  Default is [/usr/local/lib/python2.7/dist-packages]
+
+Do you wish to build TensorFlow with XLA JIT support? [Y/n]: n
+No XLA JIT support will be enabled for TensorFlow.
+
+Do you wish to build TensorFlow with OpenCL SYCL support? [y/N]: n
+No OpenCL SYCL support will be enabled for TensorFlow.
+
+Do you wish to build TensorFlow with ROCm support? [y/N]: n
+No ROCm support will be enabled for TensorFlow.
+
+Do you wish to build TensorFlow with CUDA support? [y/N]: n
+No CUDA support will be enabled for TensorFlow.
+
+Do you wish to download a fresh release of clang? (Experimental) [y/N]: n
+Clang will not be downloaded.
+
+Do you wish to build TensorFlow with MPI support? [y/N]: n
+No MPI support will be enabled for TensorFlow.
+
+Please specify optimization flags to use during compilation when bazel option "--config=opt" is specified [Default is -march=native]:
+
+
+Would you like to interactively configure ./WORKSPACE for Android builds? [y/N]: n
+Not configuring the WORKSPACE for Android builds.
+
+Preconfigured Bazel build configs. You can use any of the below by adding "--config=<>" to your build command. See .bazelrc for more details.
+        --config=mkl            # Build with MKL support.
+        --config=monolithic     # Config for mostly static monolithic build.
+        --config=gdr            # Build with GDR support.
+        --config=verbs          # Build with libverbs support.
+        --config=ngraph         # Build with Intel nGraph support.
+Preconfigured Bazel build configs to DISABLE default on features:
+        --config=noaws          # Disable AWS S3 filesystem support.
+        --config=nogcp          # Disable GCP support.
+        --config=nohdfs         # Disable HDFS support.
+        --config=noignite       # Disable Apacha Ignite support.
+        --config=nokafka        # Disable Apache Kafka support.
+Configuration finished
 ```
 
-###### download & build correct version of protobuf library
+then start building (~12 hours)
+- **NOTE**
+  if you build tensorflow from source, be sure to add the options shown at the end of ./configure, to disable the function you don't need.
+```
+bazel build -c opt --copt="-mfpu=neon-vfpv4" --copt="-funsafe-math-optimizations" \
+      --copt="-ftree-vectorize" --copt="-fomit-frame-pointer" \
+      --config=noaws \
+      --define=grpc_no_ares=true \
+      --config=monolithic \
+      --copt=-DRASPBERRY_PI \
+      --config=nogcp --config=nohdfs --config=noignite --config=nokafka \
+      --local_resources 1024,1.0,1.0 \
+      --verbose_failures \
+      //tensorflow:libtensorflow_cc.so  2>&1 | tee ./tf_nativebuild__1.12.log
+```
+Let's break down the options a little bit:
+
+- noaws
+- grpc_no_ares=true
+- -DRASPBERRY_PI
+- local_resources 1024,1.0,1.0
+
+
+###### Build correct version of protobuf library (3.6.0)
 
 
 ##### reference
@@ -59,6 +143,7 @@ https://gist.github.com/EKami/9869ae6347f68c592c5b5cd181a3b205
 
 ---------------------------------------------
 to-do : error message I got so far :
+
 
 
 
@@ -412,59 +497,7 @@ build time : ~11 hrs
 
 
 -------------------------------------------------------------------------
-try other different options to rebuild from source.
-Here I apply minimal configuration to Raspbain.
-```
-xxxx@raspberrypi:~/open_src/tensorflow/1.12/tensorflow$ ./configure
 
-You have bazel 0.19.2- (@non-git) installed.
-Please specify the location of python. [Default is /usr/bin/python]:
-
-
-Found possible Python library paths:
-  /usr/local/lib/python2.7/dist-packages
-  /usr/lib/python2.7/dist-packages
-Please input the desired Python library path to use.  Default is [/usr/local/lib/python2.7/dist-packages]
-
-Do you wish to build TensorFlow with XLA JIT support? [Y/n]: n
-No XLA JIT support will be enabled for TensorFlow.
-
-Do you wish to build TensorFlow with OpenCL SYCL support? [y/N]: n
-No OpenCL SYCL support will be enabled for TensorFlow.
-
-Do you wish to build TensorFlow with ROCm support? [y/N]: n
-No ROCm support will be enabled for TensorFlow.
-
-Do you wish to build TensorFlow with CUDA support? [y/N]: n
-No CUDA support will be enabled for TensorFlow.
-
-Do you wish to download a fresh release of clang? (Experimental) [y/N]: n
-Clang will not be downloaded.
-
-Do you wish to build TensorFlow with MPI support? [y/N]: n
-No MPI support will be enabled for TensorFlow.
-
-Please specify optimization flags to use during compilation when bazel option "--config=opt" is specified [Default is -march=native]:
-
-
-Would you like to interactively configure ./WORKSPACE for Android builds? [y/N]: n
-Not configuring the WORKSPACE for Android builds.
-
-Preconfigured Bazel build configs. You can use any of the below by adding "--config=<>" to your build command. See .bazelrc for more details.
-        --config=mkl            # Build with MKL support.
-        --config=monolithic     # Config for mostly static monolithic build.
-        --config=gdr            # Build with GDR support.
-        --config=verbs          # Build with libverbs support.
-        --config=ngraph         # Build with Intel nGraph support.
-Preconfigured Bazel build configs to DISABLE default on features:
-        --config=noaws          # Disable AWS S3 filesystem support.
-        --config=nogcp          # Disable GCP support.
-        --config=nohdfs         # Disable HDFS support.
-        --config=noignite       # Disable Apacha Ignite support.
-        --config=nokafka        # Disable Apache Kafka support.
-Configuration finished
-
-```
 
 when building from source, be sure to add the options suggested at the end of ./configure
 ```
