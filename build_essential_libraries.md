@@ -410,3 +410,85 @@ bazel build -c opt --copt="-mfpu=neon-vfpv4" --copt="-funsafe-math-optimizations
 build time : ~11 hrs
 
 
+
+-------------------------------------------------------------------------
+try other different options to rebuild from source.
+Here I apply minimal configuration to Raspbain.
+```
+xxxx@raspberrypi:~/open_src/tensorflow/1.12/tensorflow$ ./configure
+
+You have bazel 0.19.2- (@non-git) installed.
+Please specify the location of python. [Default is /usr/bin/python]:
+
+
+Found possible Python library paths:
+  /usr/local/lib/python2.7/dist-packages
+  /usr/lib/python2.7/dist-packages
+Please input the desired Python library path to use.  Default is [/usr/local/lib/python2.7/dist-packages]
+
+Do you wish to build TensorFlow with XLA JIT support? [Y/n]: n
+No XLA JIT support will be enabled for TensorFlow.
+
+Do you wish to build TensorFlow with OpenCL SYCL support? [y/N]: n
+No OpenCL SYCL support will be enabled for TensorFlow.
+
+Do you wish to build TensorFlow with ROCm support? [y/N]: n
+No ROCm support will be enabled for TensorFlow.
+
+Do you wish to build TensorFlow with CUDA support? [y/N]: n
+No CUDA support will be enabled for TensorFlow.
+
+Do you wish to download a fresh release of clang? (Experimental) [y/N]: n
+Clang will not be downloaded.
+
+Do you wish to build TensorFlow with MPI support? [y/N]: n
+No MPI support will be enabled for TensorFlow.
+
+Please specify optimization flags to use during compilation when bazel option "--config=opt" is specified [Default is -march=native]:
+
+
+Would you like to interactively configure ./WORKSPACE for Android builds? [y/N]: n
+Not configuring the WORKSPACE for Android builds.
+
+Preconfigured Bazel build configs. You can use any of the below by adding "--config=<>" to your build command. See .bazelrc for more details.
+        --config=mkl            # Build with MKL support.
+        --config=monolithic     # Config for mostly static monolithic build.
+        --config=gdr            # Build with GDR support.
+        --config=verbs          # Build with libverbs support.
+        --config=ngraph         # Build with Intel nGraph support.
+Preconfigured Bazel build configs to DISABLE default on features:
+        --config=noaws          # Disable AWS S3 filesystem support.
+        --config=nogcp          # Disable GCP support.
+        --config=nohdfs         # Disable HDFS support.
+        --config=noignite       # Disable Apacha Ignite support.
+        --config=nokafka        # Disable Apache Kafka support.
+Configuration finished
+
+```
+
+when building from source, be sure to add the options suggested at the end of ./configure
+```
+bazel build -c opt --copt="-mfpu=neon-vfpv4" --copt="-funsafe-math-optimizations" --copt="-ftree-vectorize" --copt="-fomit-frame-pointer" --config=noaws --define=grpc_no_ares=true --config=monolithic --copt=-DRASPBERRY_PI --config=nogcp --config=nohdfs --config=noignite --config=nokafka  --local_resources 1024,1.0,1.0 --verbose_failures //tensorflow:libtensorflow_cc.so  2>&1 | tee ./tf_nativebuild__1.12_v2.log
+```
+
+then copy following files from your tensorflow source folder to destination application, here we only need header files,
+you can adjust the hierarchy of these files to fir your requirement :
+```
+mkdir -p TARGET_APPS_PATH/include/bazel-genfiles  \
+         TARGET_APPS_PATH/include/third_party     \
+         TARGET_APPS_PATH/include/tensorflow/cc   \
+         TARGET_APPS_PATH/include/tensorflow/core
+
+cp -r TENSORFLOW_SRC_PATH/bazel-genfiles/*   TARGET_APPS_PATH/include/bazel-genfiles 
+cp -r TENSORFLOW_SRC_PATH/third_party/*      TARGET_APPS_PATH/include/third_party    
+cp -r TENSORFLOW_SRC_PATH/tensorflow/cc/*    TARGET_APPS_PATH/include/tensorflow/cc  
+cp -r TENSORFLOW_SRC_PATH/tensorflow/core/*  TARGET_APPS_PATH/include/tensorflow/core
+```
+
+
+
+write a simple test, verify if the shared library works well:
+```
+```
+
+
