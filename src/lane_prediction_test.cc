@@ -50,7 +50,7 @@ void help_doc () {
     printf("load samples and corresponding images to train our neural network ...  \r\n");
     printf("          \r\n");
     printf("[example] \r\n");
-    printf("    trainer  <EXAMPLE_PATH>   <INPUT_TRAINED_MODEL_PATH>   \r\n");
+    printf("    trainer  <EXAMPLE_PATH>   <TRAINED_MODEL_PATH>   \r\n");
     printf("\r\n");
     printf("\r\n");
     printf(" essential arguments:                               \r\n"); 
@@ -59,7 +59,7 @@ void help_doc () {
     printf("                 the path containing all examples,  \r\n"); 
     printf("                 each examples specifies the location of its image  \r\n"); 
     printf("               , and a point (x,y) on image indicating the centroid of the lane. \r\n"); 
-    printf("    INPUT_TRAINED_MODEL_PATH                                           \r\n"); 
+    printf("    TRAINED_MODEL_PATH                                           \r\n"); 
     printf("               the location to load the trained neural network model.  \r\n"); 
     printf("               in Tensorflow C++ API, this includes 2 parts :          \r\n"); 
     printf("                   * neural network model (protobuf)                   \r\n"); 
@@ -80,26 +80,26 @@ int  main (int argc, char ** argv)
     std::string input_trained_model_path = std::string (argv[2]);
     input_trained_model_path = input_trained_model_path + "/";
 
-    unsigned short int  img_width = 40;
-    unsigned short int  img_height = 15;
+    unsigned short int  resized_img_width = 40;
+    unsigned short int  resized_img_height = 15;
     unsigned short int  img_chnal = 3;
     float cv_loss    = 0.f;
     float accurancy  = 0.f;
 
     unsigned short int jdx = 0;
 
-    std::unordered_map< std::string, std::string > hyparams_str ;
-    std::unordered_map< std::string, float > hyparams_flt ;
-    std::unordered_map< std::string, int >   hyparams_int ;
+    std::unordered_map< std::string, std::string> hyparams_str ;
+    std::unordered_map< std::string, float> hyparams_flt ;
+    std::unordered_map< std::string, int>   hyparams_int ;
 
     hyparams_flt["learning_rate"]  = 0; 
     hyparams_flt["reg_lambda"]     = 0; 
     hyparams_flt["max_val_param_l1"]  = 0 ; 
     hyparams_flt["max_val_param_l2"]  = 0 ; 
     hyparams_flt["max_val_param_out"] = 0 ; 
-    hyparams_int["img_width"]  = img_width;
-    hyparams_int["img_height"] = img_height;
-    hyparams_int["num_fc_inl"] = img_width * img_height * img_chnal;
+    hyparams_int["resized_img_width"]  = resized_img_width;
+    hyparams_int["resized_img_height"] = resized_img_height;
+    hyparams_int["num_fc_inl"] = resized_img_width * resized_img_height * img_chnal;
     hyparams_int["num_fc_l1"] = 0; 
     hyparams_int["num_fc_l2"] = 0; 
     hyparams_int["num_fc_outl"] = 2;

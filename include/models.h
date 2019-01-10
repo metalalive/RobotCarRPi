@@ -7,11 +7,12 @@
 #include <unordered_map>
 #include <algorithm>  // for std::min
 
+#include <opencv2/opencv.hpp>
+
 #include "tensorflow/cc/ops/standard_ops.h"
 #include "tensorflow/cc/framework/grad_op_registry.h"
 #include "tensorflow/cc/framework/gradients.h"
 ////#include "tensorflow/cc/client/client_session.h"
-
 #include "tensorflow/core/public/session.h"
 #include "tensorflow/core/common_runtime/session_factory.h"
 #include "tensorflow/core/public/session_options.h"
@@ -81,6 +82,8 @@ class models
         float  train (std::vector<laneinfo> &samples, dataset_handler &dl);
 
         float  validate (std::vector<laneinfo> &samples, dataset_handler &dl);
+
+        void   predict (cv::Mat &img_in, point2D &out, dataset_handler &dl);
 
         float  get_cv_accurancy ();
 

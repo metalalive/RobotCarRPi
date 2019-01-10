@@ -90,8 +90,8 @@ int  main (int argc, char ** argv)
     std::string output_trained_model_path = std::string (argv[2]);
     output_trained_model_path = output_trained_model_path + "/";
 
-    unsigned short int  img_width = 40;
-    unsigned short int  img_height = 15;
+    unsigned short int  resized_img_width = 40;
+    unsigned short int  resized_img_height = 15;
     unsigned short int  img_chnal = 3;
     unsigned short int  round = 2;
     unsigned short int  num_train_iteration = std::stoi(argv[10]); // 800~ 
@@ -111,9 +111,9 @@ int  main (int argc, char ** argv)
     hyparams_flt["max_val_param_l1"]  = std::stof(argv[5]); // 0.0011
     hyparams_flt["max_val_param_l2"]  = std::stof(argv[6]); // 0.0625
     hyparams_flt["max_val_param_out"] = std::stof(argv[7]); // 0.124
-    hyparams_int["img_width"]  = img_width;
-    hyparams_int["img_height"] = img_height;
-    hyparams_int["num_fc_inl"] = img_width * img_height * img_chnal;
+    hyparams_int["resized_img_width"]  = resized_img_width;
+    hyparams_int["resized_img_height"] = resized_img_height;
+    hyparams_int["num_fc_inl"] = resized_img_width * resized_img_height * img_chnal;
     hyparams_int["num_fc_l1"] = std::stoi(argv[8]); // 32
     hyparams_int["num_fc_l2"] = std::stoi(argv[9]); // 8
     hyparams_int["num_fc_outl"] = 2;

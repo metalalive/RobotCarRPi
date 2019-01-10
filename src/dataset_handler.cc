@@ -98,7 +98,7 @@ std::vector< std::vector<laneinfo> > dataset_handler::split_shuffle (std::string
 }
 
 
-void dataset_handler::load_batch_examples(
+void dataset_handler::load_labeled_examples(
                          std::vector<laneinfo> &sliced_samples,
                          tensorflow::Tensor &sample_data, 
                          tensorflow::Tensor &label_data )
@@ -112,30 +112,65 @@ void dataset_handler::load_batch_examples(
         // since we always create matrix using cv::imread, which internally calls cv::create()
         // there is no need to check if the pixels of a image are continuously put in memory
         cv::Mat img = cv::imread(it->imgpath);
-        // any input image will be normalized to the range from -1 to 1
         cv::Mat norm_img;
-        cv::Mat resized_img;
-        // resize & normalize image
-        cv::Size scaled_size = cv::Size(__hyparams_int["img_width"], __hyparams_int["img_height"]);
-        cv::resize (img, resized_img, scaled_size );
-        resized_img.convertTo (norm_img, CV_32FC3, 2.0/255.0, -1.0);
-        // no need to check if the pixels of a image are continuously put in memory
-        // since cv::convertTo() internally calls cv::create()
-        // append flattened pixels of current image to the vector of unsigned char
+        preprocess_one_image (img, norm_img);
         flatten_pxl.insert ( flatten_pxl.end(), (float*)norm_img.datastart, (float*)norm_img.dataend );
         img.release();
         norm_img.release();
-        resized_img.release();
         flatten_labels.push_back (it->label.x);
         flatten_labels.push_back (it->label.y);
     }
-    //// std::cout << "[DBG][load_batch_examples] sliced_samples.size() : " << sliced_samples.size()  << std::endl;
+    //// std::cout << "[DBG][load_labeled_examples] sliced_samples.size() : " << sliced_samples.size()  << std::endl;
     //// std::cout << "[DBG] now data is ready to copy" << ", flatten_pxl.size() : "<< flatten_pxl.size()  << std::endl;
     std::copy_n( flatten_pxl.begin(),    flatten_pxl.size(),     sample_data.flat<float>().data() );
     std::copy_n( flatten_labels.begin(), flatten_labels.size(),   label_data.flat<float>().data() );
 }
 
 
+
+
+void  dataset_handler::load_unlabeled_example (cv::Mat& img_in,   tensorflow::Tensor &sample_data )
+{
+    // to-do: optimization
+    std::vector<float> flatten_pxl;
+    cv::Mat norm_img;
+    int norm_img_size = 0;
+
+    preprocess_one_image (img_in, norm_img);
+    norm_img_size = norm_img.elemSize() * norm_img.total() / sizeof(float);
+    ////flatten_pxl.insert ( flatten_pxl.end(), (float*)norm_img.datastart, (float*)norm_img.dataend );
+    ////std::copy_n( flatten_pxl.begin(),    flatten_pxl.size(),     sample_data.flat<float>().data() );
+    std::copy_n( (float*)norm_img.datastart, norm_img_size,  sample_data.flat<float>().data() );
+    norm_img.release ();
+}
+
+
+
+
+
+void  dataset_handler::preprocess_one_image (cv::Mat& img_in, cv::Mat& img_out)
+{
+    cv::Mat continuous_img;
+    cv::Mat resized_img;
+    // check if the pixels of input matrix are continuous on memory (without gap)
+    if (img_in.isContinuous()) {
+        continuous_img = img_in;
+    }
+    else {
+        // make the pixel continuous
+        continuous_img = img_in.clone();
+    }
+    // any input image will be normalized to the range from -1 to 1
+    // resize & normalize image
+    cv::Size scaled_size = cv::Size(__hyparams_int["resized_img_width"], __hyparams_int["resized_img_height"]);
+    cv::resize (continuous_img, resized_img, scaled_size);
+    resized_img.convertTo (img_out, CV_32FC3, 2.0/255.0, -1.0);
+    // append flattened pixels of current image to the vector of unsigned char
+    resized_img.release();
+    if (!img_in.isContinuous()) {
+        continuous_img.release();
+    }
+}
 
 
 

@@ -68,7 +68,7 @@ CC_OPTIONS = -Wall  -nostartfiles -c -g  -std=c++11 -D_GLIBCXX_USE_CXX11_ABI=1 -
 %.o: %.cc
 	$(CC)  $(INCLUDE_HEADER) $< -o $@  $(CC_OPTIONS) $(PREFIX_CC_DEFINE_PARAMS)
 
-%.out: %.o  dataset_handler.o  models.o 
+%.out: %.o  GPIOcontroller.o  dataset_handler.o  models.o 
 	$(LD)  $^ -o $@  $(LINK_LIB)
 
 

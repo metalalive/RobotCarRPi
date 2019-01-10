@@ -50,7 +50,7 @@ Note that bazel supports only few CPU architecture like x86 and ARMv7-A, which m
    you can recheck if you're already under v1.12 release branch using git branch or git log. (Note: see  other available releases from [HERE](https://github.com/tensorflow/tensorflow/releases) )
 
 
-- According to [issue #24372](https://github.com/tensorflow/tensorflow/issues/24372), if you compile tensorflow branch v1.12 right after previous step you will run into [linking error like THIS](build_essential_libraries.md######ERROR-1) , so we must apply 2 patches downloaded from [HERE](https://gist.github.com/fyhertz/4cef0b696b37d38964801d3ef21e8ce2).
+- According to [tensorflow issue #24372](https://github.com/tensorflow/tensorflow/issues/24372), if you compile tensorflow branch v1.12 right after previous step you will run into [linking error like THIS](build_essential_libraries.md#ERROR-1) , so we must apply 2 patches downloaded from [HERE](https://gist.github.com/fyhertz/4cef0b696b37d38964801d3ef21e8ce2).
   download the zip file, extract, then apply
   ```
   git am YOUR_PATCH_NAME.patch
@@ -133,11 +133,13 @@ bazel build -c opt --copt="-mfpu=neon-vfpv4" --copt="-funsafe-math-optimizations
 Let's break down the options a little bit:
 
 - --config=noaws
-  According to issue HERE
+  According to [this linking error](build_essential_libraries.md#ERROR-1), please add this option to disable AWS support.
 - --define=grpc_no_ares=true
+  libc-ares-dev should be included when building from source, in newer version of bazel and tensorflow, you can simply add this option instead of manually download/install the package (e.g. by **apt-get install libc-ares-dev**)
 - --copt=-DRASPBERRY_PI
+  if you forgot to add this option, you will end up with [this linking error](build_essential_libraries.md#ERROR-2) at the end.
 - local_resources 1024,1.0,1.0
-
+  if you forgot to add this option, compiler will complain out-of-memory issues and report [this error](build_essential_libraries.md#ERROR-3).
 
 ###### Build correct version of protobuf library (3.6.0)
 
@@ -149,7 +151,7 @@ https://gist.github.com/EKami/9869ae6347f68c592c5b5cd181a3b205
 #### Errors you may encounter during the build procedure.
 
 ###### ERROR 1
-AWS functionality is NOT present in my case, however in the release branch r1.12 users cannot disable AWS support through ./configure , you would end up with linking error like following:
+AWS support shouldn't be present in my case, however in the release branch r1.12 users cannot disable AWS support through ./configure , you would end up with linking error like following:
 ```
 ERROR: /home/pi/open_src/tensorflow/1.12/tensorflow/tensorflow/BUILD:449:1: Linking of rule '//tensorflow:libtensorflow_cc.so' failed (Exit 1) gcc failed: error executing command
   (cd /home/pi/.cache/bazel/_bazel_pi/0b3a56398e8b5b41f08cb1aee4909967/execroot/org_tensorflow && \
@@ -164,7 +166,7 @@ ERROR: /home/pi/open_src/tensorflow/1.12/tensorflow/tensorflow/BUILD:449:1: Link
     TF_NEED_ROCM=0 \
   /usr/bin/gcc -shared -o bazel-out/arm-opt/bin/tensorflow/libtensorflow_cc.so -z defs -Wl,--version-script tensorflow/tf_version_script.lds '-Wl,-rpath,$ORIGIN/' -Wl,-soname,libtensorflow_cc.so -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread '-fuse-ld=gold' -Wl,-no-as-needed -Wl,-z,relro,-z,now -B/usr/bin -B/usr/bin -pass-exit-codes -Wl,--gc-sections -Wl,@bazel-out/arm-opt/bin/tensorflow/libtensorflow_cc.so-2.params)
 
-.............
+.......................<skip other log messages>.......................
 
 bazel-out/arm-opt/bin/external/aws/_objs/aws/AWSCredentialsProvider.pic.o:AWSCredentialsProvider.cpp:function Aws::Auth::EnvironmentAWSCredentialsProvider::GetAWSCredentials(): error: undefined reference to 'Aws::Environment::GetEnv[abi:cxx11](char const*)'
 bazel-out/arm-opt/bin/external/aws/_objs/aws/AWSCredentialsProvider.pic.o:AWSCredentialsProvider.cpp:function Aws::Auth::EnvironmentAWSCredentialsProvider::GetAWSCredentials(): error: undefined reference to 'Aws::Environment::GetEnv[abi:cxx11](char const*)'
@@ -179,63 +181,17 @@ bazel-out/arm-opt/bin/external/aws/_objs/aws/DateTimeCommon.pic.o:DateTimeCommon
 bazel-out/arm-opt/bin/external/aws/_objs/aws/TempFile.pic.o:TempFile.cpp:function .LTHUNK4: error: undefined reference to 'Aws::FileSystem::RemoveFileIfExists(char const*)'
 bazel-out/arm-opt/bin/external/aws/_objs/aws/TempFile.pic.o:TempFile.cpp:function Aws::Utils::ComputeTempFileName(char const*, char const*): error: undefined reference to 'Aws::FileSystem::CreateTempFilePath[abi:cxx11]()'
 
-.......................<other log messages>.......................
+.......................<skip other log messages>.......................
 
 collect2: error: ld returned 1 exit status
-
 ```
 
 
-
-
-
-
-
-
----------------------------------------------
-compile Bazel 0.21.0 on raspbain stretch
- Configurable attribute "actual" doesn't match this configuration: Could not find a JDK for host execution environment, please explicitly provide one using `--host_javabase.`
-
- ----------------------------------- error when compiling tensorflow (branch origin / master) -----------------------------------
-ERROR: /home/pi/open_src/tensorflow/1.12/tensorflow-master/tensorflow/core/kernels/BUILD:2919:1: C++ compilation of rule '//tensorflow/core/kernels:matrix_square_root_op' failed (Exit 1): gcc failed: error executing command
-  (cd /home/pi/.cache/bazel/_bazel_pi/fd3a3edf6b94d1539919e6f15e50731b/execroot/org_tensorflow && \
-  exec env - \
-    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games \
-    PWD=/proc/self/cwd \
-    PYTHON_BIN_PATH=/usr/bin/python \
-    PYTHON_LIB_PATH=/usr/local/lib/python2.7/dist-packages \
-    TF_DOWNLOAD_CLANG=0 \
-    TF_NEED_CUDA=0 \
-    TF_NEED_OPENCL_SYCL=0 \
-    TF_NEED_ROCM=0 \
-  /usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -B/usr/bin -B/usr/bin -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -g0 -O2 '-D_FORTIFY_SOURCE=1' -DNDEBUG -ffunction-sections -fdata-sections '-std=c++0x' -MD -MF bazel-out/arm-opt/bin/tensorflow/core/kernels/_objs/matrix_square_root_op/matrix_square_root_op.pic.d '-frandom-seed=bazel-out/arm-opt/bin/tensorflow/core/kernels/_objs/matrix_square_root_op/matrix_square_root_op.pic.o' -fPIC -D__CLANG_SUPPORT_DYN_ANNOTATION__ -DEIGEN_MPL2_ONLY '-DEIGEN_MAX_ALIGN_BYTES=64' '-DEIGEN_HAS_TYPE_TRAITS=0' -DTF_USE_SNAPPY -iquote . -iquote bazel-out/arm-opt/genfiles -iquote bazel-out/arm-opt/bin -iquote external/com_google_absl -iquote bazel-out/arm-opt/genfiles/external/com_google_absl -iquote bazel-out/arm-opt/bin/external/com_google_absl -iquote external/bazel_tools -iquote bazel-out/arm-opt/genfiles/external/bazel_tools -iquote bazel-out/arm-opt/bin/external/bazel_tools -iquote external/eigen_archive -iquote bazel-out/arm-opt/genfiles/external/eigen_archive -iquote bazel-out/arm-opt/bin/external/eigen_archive -iquote external/local_config_sycl -iquote bazel-out/arm-opt/genfiles/external/local_config_sycl -iquote bazel-out/arm-opt/bin/external/local_config_sycl -iquote external/nsync -iquote bazel-out/arm-opt/genfiles/external/nsync -iquote bazel-out/arm-opt/bin/external/nsync -iquote external/gif_archive -iquote bazel-out/arm-opt/genfiles/external/gif_archive -iquote bazel-out/arm-opt/bin/external/gif_archive -iquote external/jpeg -iquote bazel-out/arm-opt/genfiles/external/jpeg -iquote bazel-out/arm-opt/bin/external/jpeg -iquote external/protobuf_archive -iquote bazel-out/arm-opt/genfiles/external/protobuf_archive -iquote bazel-out/arm-opt/bin/external/protobuf_archive -iquote external/com_googlesource_code_re2 -iquote bazel-out/arm-opt/genfiles/external/com_googlesource_code_re2 -iquote bazel-out/arm-opt/bin/external/com_googlesource_code_re2 -iquote external/farmhash_archive -iquote bazel-out/arm-opt/genfiles/external/farmhash_archive -iquote bazel-out/arm-opt/bin/external/farmhash_archive -iquote external/fft2d -iquote bazel-out/arm-opt/genfiles/external/fft2d -iquote bazel-out/arm-opt/bin/external/fft2d -iquote external/highwayhash -iquote bazel-out/arm-opt/genfiles/external/highwayhash -iquote bazel-out/arm-opt/bin/external/highwayhash -iquote external/zlib_archive -iquote bazel-out/arm-opt/genfiles/external/zlib_archive -iquote bazel-out/arm-opt/bin/external/zlib_archive -isystem external/eigen_archive -isystem bazel-out/arm-opt/genfiles/external/eigen_archive -isystem bazel-out/arm-opt/bin/external/eigen_archive -isystem external/nsync/public -isystem bazel-out/arm-opt/genfiles/external/nsync/public -isystem bazel-out/arm-opt/bin/external/nsync/public -isystem external/gif_archive/lib -isystem bazel-out/arm-opt/genfiles/external/gif_archive/lib -isystem bazel-out/arm-opt/bin/external/gif_archive/lib -isystem external/protobuf_archive/src -isystem bazel-out/arm-opt/genfiles/external/protobuf_archive/src -isystem bazel-out/arm-opt/bin/external/protobuf_archive/src -isystem external/farmhash_archive/src -isystem bazel-out/arm-opt/genfiles/external/farmhash_archive/src -isystem bazel-out/arm-opt/bin/external/farmhash_archive/src -isystem external/zlib_archive -isystem bazel-out/arm-opt/genfiles/external/zlib_archive -isystem bazel-out/arm-opt/bin/external/zlib_archive -funsafe-math-optimizations '-mfpu=neon-vfpv4' -ftree-vectorize -fomit-frame-pointer -DEIGEN_AVOID_STL_ARRAY -Iexternal/gemmlowp -Wno-sign-compare -fno-exceptions '-ftemplate-depth=900' -pthread -fno-canonical-system-headers -Wno-builtin-macro-redefined '-D__DATE__="redacted"' '-D__TIMESTAMP__="redacted"' '-D__TIME__="redacted"' -c tensorflow/core/kernels/matrix_square_root_op.cc -o bazel-out/arm-opt/bin/tensorflow/core/kernels/_objs/matrix_square_root_op/matrix_square_root_op.pic.o)
-virtual memory exhausted: Cannot allocate memory
-Target //tensorflow:libtensorflow_cc.so failed to build
-INFO: Elapsed time: 5725.553s, Critical Path: 5711.34s, Remote (0.00% of the time): [queue: 0.00%, setup: 0.00%, process: 0.00%]
-INFO: 182 processes: 182 local.
-FAILED: Build did NOT complete successfully
-pi@raspberrypi:~/open_src/tensorflow/1.12/tensorflow-master$
-
-
-
-
-------------------- error on bazel build (bazel, 0.19.2, tf r1.12) -------------------
----------- try sudo apt-get install libc-ares-dev ....
-
-
-
-
---------------------------------------------------------------------------------------------
-
-aws feature should be turn off !!!!
-try the patch from the issue below
-https://github.com/tensorflow/tensorflow/issues/24372
-https://gist.github.com/fyhertz/4cef0b696b37d38964801d3ef21e8ce2
-
-bazel build -c opt --copt="-mfpu=neon-vfpv4" --copt="-funsafe-math-optimizations" --copt="-ftree-vectorize" --copt="-fomit-frame-pointer" --config=noaws --define=grpc_no_ares=true --local_resources 1024,1.0,1.0 --verbose_failures //tensorflow:libtensorflow_cc.so
-
-
-
+###### ERROR 2
+add define marco RASPBERRY_PI , referenced in tensorflow/core/platform/platform.h
+https://github.com/tensorflow/tensorflow/issues/17790
+https://github.com/tensorflow/serving/issues/852
+```
 ERROR: /home/pi/open_src/tensorflow/1.12/tensorflow/tensorflow/BUILD:477:1: Linking of rule '//tensorflow:libtensorflow_cc.so' failed (Exit 1): gcc failed: error executing command
   (cd /home/pi/.cache/bazel/_bazel_pi/0b3a56398e8b5b41f08cb1aee4909967/execroot/org_tensorflow && \
   exec env - \
@@ -255,21 +211,32 @@ Target //tensorflow:libtensorflow_cc.so failed to build
 INFO: Elapsed time: 28771.690s, Critical Path: 4467.15s, Remote (0.00% of the time): [queue: 0.00%, setup: 0.00%, process: 0.00%]
 INFO: 3375 processes: 3375 local.
 FAILED: Build did NOT complete successfully
+```
+
+###### ERROR 3
+```
+ERROR: /home/pi/open_src/tensorflow/1.12/tensorflow-master/tensorflow/core/kernels/BUILD:2919:1: C++ compilation of rule '//tensorflow/core/kernels:matrix_square_root_op' failed (Exit 1): gcc failed: error executing command
+  (cd /home/pi/.cache/bazel/_bazel_pi/fd3a3edf6b94d1539919e6f15e50731b/execroot/org_tensorflow && \
+  exec env - \
+    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games \
+    PWD=/proc/self/cwd \
+    PYTHON_BIN_PATH=/usr/bin/python \
+    PYTHON_LIB_PATH=/usr/local/lib/python2.7/dist-packages \
+    TF_DOWNLOAD_CLANG=0 \
+    TF_NEED_CUDA=0 \
+    TF_NEED_OPENCL_SYCL=0 \
+    TF_NEED_ROCM=0 \
+  /usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -B/usr/bin -B/usr/bin -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -g0 -O2 '-D_FORTIFY_SOURCE=1' -DNDEBUG -ffunction-sections -fdata-sections '-std=c++0x' -MD -MF bazel-out/arm-opt/bin/tensorflow/core/kernels/_objs/matrix_square_root_op/matrix_square_root_op.pic.d '-frandom-seed=bazel-out/arm-opt/bin/tensorflow/core/kernels/_objs/matrix_square_root_op/matrix_square_root_op.pic.o' -fPIC -D__CLANG_SUPPORT_DYN_ANNOTATION__ -DEIGEN_MPL2_ONLY '-DEIGEN_MAX_ALIGN_BYTES=64' '-DEIGEN_HAS_TYPE_TRAITS=0' -DTF_USE_SNAPPY -iquote . -iquote bazel-out/arm-opt/genfiles -iquote bazel-out/arm-opt/bin -iquote external/com_google_absl -iquote bazel-out/arm-opt/genfiles/external/com_google_absl -iquote bazel-out/arm-opt/bin/external/com_google_absl -iquote external/bazel_tools -iquote bazel-out/arm-opt/genfiles/external/bazel_tools -iquote bazel-out/arm-opt/bin/external/bazel_tools ................. -iquote external/zlib_archive -iquote bazel-out/arm-opt/genfiles/external/zlib_archive -iquote bazel-out/arm-opt/bin/external/zlib_archive -isystem external/eigen_archive -isystem bazel-out/arm-opt/genfiles/external/eigen_archive .............................. -isystem bazel-out/arm-opt/genfiles/external/zlib_archive -isystem bazel-out/arm-opt/bin/external/zlib_archive -funsafe-math-optimizations '-mfpu=neon-vfpv4' -ftree-vectorize -fomit-frame-pointer -DEIGEN_AVOID_STL_ARRAY -Iexternal/gemmlowp -Wno-sign-compare -fno-exceptions '-ftemplate-depth=900' -pthread -fno-canonical-system-headers -Wno-builtin-macro-redefined '-D__DATE__="redacted"' '-D__TIMESTAMP__="redacted"' '-D__TIME__="redacted"' -c tensorflow/core/kernels/matrix_square_root_op.cc -o bazel-out/arm-opt/bin/tensorflow/core/kernels/_objs/matrix_square_root_op/matrix_square_root_op.pic.o)
+virtual memory exhausted: Cannot allocate memory
+Target //tensorflow:libtensorflow_cc.so failed to build
+INFO: Elapsed time: 5725.553s, Critical Path: 5711.34s, Remote (0.00% of the time): [queue: 0.00%, setup: 0.00%, process: 0.00%]
+INFO: 182 processes: 182 local.
+FAILED: Build did NOT complete successfully
+```
 
 
 
 
---------------------------------------------------------------------------------------------
-add define marco RASPBERRY_PI 
-referenced in tensorflow/core/platform/platform.h
-
-https://github.com/tensorflow/tensorflow/issues/17790
-https://github.com/tensorflow/serving/issues/852
-
-
-bazel build -c opt --copt="-mfpu=neon-vfpv4" --copt="-funsafe-math-optimizations" --copt="-ftree-vectorize" --copt="-fomit-frame-pointer" --config=noaws --define=grpc_no_ares=true --config=monolithic --copt=-DRASPBERRY_PI --local_resources 1024,1.0,1.0 --verbose_failures //tensorflow:libtensorflow_cc.so  2>&1 | tee ./tf_nativebuild.log
-
-bazel build -c opt --copt="-mfpu=neon-vfpv4" --copt="-funsafe-math-optimizations" --copt="-ftree-vectorize" --copt="-fomit-frame-pointer" --config=noaws --define=grpc_no_ares=true --config=monolithic --copt=-DRASPBERRY_PI --local_resources 1024,1.0,1.0 --verbose_failures //tensorflow:libtensorflow_cc.so 2>&1 | tee ./tf_nativebuild.log
 
 
 ... work OK, build .so successfully

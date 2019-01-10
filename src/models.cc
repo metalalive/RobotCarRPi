@@ -251,6 +251,9 @@ void models::initialize()
 
 float  models::train (std::vector<laneinfo>  &samples, dataset_handler &dl)
 {
+#ifdef HOST_OS_RPI
+    return 0.f;
+#else
     int num_examples = samples.size();
     int num_examples_in_curr_batch = 0;
     int num_samples_batch = __hyparams_int["num_samples_batch"];
@@ -281,7 +284,7 @@ float  models::train (std::vector<laneinfo>  &samples, dataset_handler &dl)
             tensorflow::Tensor sample_data (tensorflow::DataTypeToEnum<float>::v(), sample_data_shape);
             tensorflow::Tensor  label_data (tensorflow::DataTypeToEnum<float>::v(), label_data_shape);
             // copy image data from cv::Mat to tensorflow::Tensor
-            dl.load_batch_examples(sliced_samples, sample_data, label_data);
+            dl.load_labeled_examples(sliced_samples, sample_data, label_data);
             // check first few items to see if pixels are copied successfully.
             eval_result.clear();
             // get loss of each batch
@@ -290,19 +293,6 @@ float  models::train (std::vector<laneinfo>  &samples, dataset_handler &dl)
                     {{"sample_entry", sample_data}, {"label_entry", label_data}},
                     {"cost_fn"}, {}, &eval_result ) 
             );
-
-            //// if(samples_start_idx == 0) {
-            //// for (int jdx = 1 ; jdx < eval_result.size(); jdx++)
-            //// {
-            ////     Eigen::Tensor<float, 2, Eigen::RowMajor, Eigen::DenseIndex> layerval = eval_result[jdx].matrix<float>() ;
-            ////     std::cout << "[DBG][train] check : eval_result["<< jdx <<"]"
-            ////               << eval_result[jdx].dim_size(0) <<"x"
-            ////               << eval_result[jdx].dim_size(1) <<"\t:"
-            ////               << layerval(2,0) <<", "<< layerval(5,0) <<", "
-            ////               << layerval(7,0) <<", "<< layerval(11,0) << std::endl;
-            //// }
-            //// std::cout << "--------------------------"<< std::endl;
-            //// }
 
             // accumulate each loss
             curr_loss = *(float*) eval_result[0].scalar<float>().data();
@@ -315,16 +305,33 @@ float  models::train (std::vector<laneinfo>  &samples, dataset_handler &dl)
                     {}, nullptr
                 )
             );
-            //// LOG(INFO) << eval_result[0].DebugString();
-            ////std::cout << "[DBG] [train] samples_start_idx = "<< samples_start_idx <<", curr_loss : "<< curr_loss << std::endl;
         }
     }
     float final_loss = (get_loss() * 1.0) / num_examples;
     return final_loss ;
+#endif // end of HOST_OS_RPI
 }
 
 
 
+// In validate() , we need to extract the value of each item of the matrix,
+// which is tensorflow::Tensor, where the calculation really happened on the graph
+// tensorflow::Tensor applies Eigen::Tensor so users can read the value of each item of a matrix
+// in Matlab-like coding style.
+// Here is an example to do so:
+//
+// tensorflow::Tensor eval_result; // assume it's estimated by session.Run()
+//
+// for (int jdx = 1 ; jdx < eval_result.size(); jdx++)
+// {
+//     Eigen::Tensor<float, 2, Eigen::RowMajor, Eigen::DenseIndex> layerval = eval_result[jdx].matrix<float>() ;
+//     std::cout << "[DBG][train] check : eval_result["<< jdx <<"]"
+//               << eval_result[jdx].dim_size(0) <<"x"
+//               << eval_result[jdx].dim_size(1) <<"\t:"
+//               << layerval(2,0) <<", "<< layerval(2,0) <<", "
+//               << layerval(7,1) <<", "<< layerval(7,1) << std::endl;
+// }
+// LOG(INFO) << eval_result[0].DebugString();
 
 float  models::validate (std::vector<laneinfo> &samples,  dataset_handler &dl)
 {
@@ -346,9 +353,8 @@ float  models::validate (std::vector<laneinfo> &samples,  dataset_handler &dl)
     int idx = 0;
     
     set_loss(0.0);
-    if (num_examples > 0 )
+    if (num_examples > 0)
     {
-        ////std::cout << "[DBG] pred_mtx:";
         for (samples_start_idx=0; samples_start_idx<num_examples; samples_start_idx+=num_samples_batch) 
         {
             samples_end_idx = std::min( samples_start_idx + num_samples_batch , num_examples );
@@ -360,7 +366,7 @@ float  models::validate (std::vector<laneinfo> &samples,  dataset_handler &dl)
             tensorflow::TensorShape  label_data_shape {num_examples_in_curr_batch, num_fc_outl};
             tensorflow::Tensor sample_data (tensorflow::DataTypeToEnum<float>::v(), sample_data_shape);
             tensorflow::Tensor  label_data (tensorflow::DataTypeToEnum<float>::v(), label_data_shape);
-            dl.load_batch_examples(sliced_samples, sample_data, label_data);
+            dl.load_labeled_examples(sliced_samples, sample_data, label_data);
             eval_result.clear();
             // get loss of each batch
             TF_CHECK_OK(
@@ -382,28 +388,8 @@ float  models::validate (std::vector<laneinfo> &samples,  dataset_handler &dl)
                 samples.at(samples_start_idx + idx).error.x = std::fabs(samples.at(samples_start_idx + idx).pred.x - samples.at(samples_start_idx + idx).label.x);
                 samples.at(samples_start_idx + idx).error.y = std::fabs(samples.at(samples_start_idx + idx).pred.y - samples.at(samples_start_idx + idx).label.y);
             }
-             // for debug 
-            //// int jdx = 0;
-            //// if(samples_start_idx == 0) {
-            //// for (int jdx = 1 ; jdx < eval_result.size(); jdx++)
-            //// {
-            ////     Eigen::Tensor<float, 2, Eigen::RowMajor, Eigen::DenseIndex> layerval = eval_result[jdx].matrix<float>() ;
-            ////     std::cout << "[DBG][cv] check : eval_result["<< jdx <<"]"
-            ////               << eval_result[jdx].dim_size(0) <<"x"
-            ////               << eval_result[jdx].dim_size(1) <<"\t:"
-            ////               << layerval(2,0) <<", "<< layerval(5,0) <<", "
-            ////               << layerval(7,0) <<", "<< layerval(11,0) << std::endl;
-            //// }
-            //// }
-            ////std::cout << "("<< eval_result[1].dim_size(0)  <<", "<< eval_result[1].dim_size(1) <<"), ";
         }
-        ////std::cout << std::endl;
     }
-    // debug again ...
-    //// std::cout << "[DBG][cv] pred_results[2,5,7,11]: "
-    ////           << pred_results.at(2).x <<", "<< pred_results.at(5).x <<", "
-    ////           << pred_results.at(7).x <<", "<< pred_results.at(11).x << std::endl;
-    //// std::cout << "--------------------------"<< std::endl;
     calculate_cv_accurancy (samples, 0.25); 
 
     float final_loss = (get_loss() * 1.0) / num_examples;
@@ -412,11 +398,32 @@ float  models::validate (std::vector<laneinfo> &samples,  dataset_handler &dl)
 
 
 
+
+void  models::predict (cv::Mat &img_in, point2D &out, dataset_handler &dl)
+{
+    int num_fc_inl  = __hyparams_int["num_fc_inl"];
+    std::vector< tensorflow::Tensor > eval_result;
+    tensorflow::TensorShape sample_data_shape {1, num_fc_inl};
+    tensorflow::Tensor sample_data (tensorflow::DataTypeToEnum<float>::v(), sample_data_shape);
+    // pre-process image then copy to Tensor.
+    dl.load_unlabeled_example ( img_in,  sample_data );
+    TF_CHECK_OK(
+        sessions.back()->Run ( {{"sample_entry", sample_data}},  {"outlayer"}, {}, &eval_result )
+    );
+    // get predicted value
+    Eigen::Tensor<float, 2, Eigen::RowMajor, Eigen::DenseIndex> pred_mtx = eval_result[0].matrix<float>();
+    out.x = pred_mtx(0,0);
+    out.y = pred_mtx(0,1);
+}
+
+
+
+
 void models::calculate_cv_accurancy (std::vector<laneinfo> samples, float cv_threshold ) 
 {
     float accurancy = 0.0;
     float x_threshold = cv_threshold * 1.0;
-    float y_threshold = cv_threshold * 1.6;
+    float y_threshold = cv_threshold * 1.5;
     int num_passed   = 0;
     int num_examples = samples.size();
     int idx = 0;
@@ -424,7 +431,6 @@ void models::calculate_cv_accurancy (std::vector<laneinfo> samples, float cv_thr
     for (idx=0; idx<num_examples; idx++)
     {
         if (samples.at(idx).error.x < x_threshold && samples.at(idx).error.y < y_threshold) {
-        ////if ((samples.at(idx).error.x) < cv_threshold) {
             num_passed ++;
         }
     }

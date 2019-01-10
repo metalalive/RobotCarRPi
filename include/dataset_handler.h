@@ -43,10 +43,13 @@ class dataset_handler{
 
         std::vector< std::vector<laneinfo> > split_shuffle (std::string labels_dir_path="./" );
 
-        void  load_batch_examples(std::vector<laneinfo> &sliced_samples,
+        void  load_labeled_examples(std::vector<laneinfo> &sliced_samples,
                        tensorflow::Tensor &sample_data, 
                        tensorflow::Tensor &label_data );
 
+        void  load_unlabeled_example ( cv::Mat& img_in,  tensorflow::Tensor &sample_data);
+
+        void  preprocess_one_image (cv::Mat& img_in, cv::Mat& img_out);
 
     private:
         std::unordered_map< std::string, int>          __hyparams_int;
