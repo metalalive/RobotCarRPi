@@ -1,18 +1,21 @@
-To run the lane detection application on Raspberry Pi (3b+, in my case), we need to build following libraries from source:
+# Build essential libraries for RobotCarRPi
+To run the lane detection application on Raspberry Pi (3b+, in my case), since there is no convenient pre-built package for C++ developers on the intenet, we will need to build following libraries from source:
 
-##### OpenCV c++ library (v3.3.0 or 4.0.0): 
-see installation guide [here](https://www.pyimagesearch.com/2018/09/26/install-opencv-4-on-your-raspberry-pi/), it's OK to skip python part since we won't run python code on target Raspberry Pi.
+#### OpenCV c++ library v4.0.0: 
+see installation guide [here](https://www.pyimagesearch.com/2018/09/26/install-opencv-4-on-your-raspberry-pi/), few things should be noted here:
+- it's OK to skip python part since we won't run python code on target Raspberry Pi.
+- in the guide above, swap size was changed to 2GB for opencv installation, please keep it for subsequent bazel/tensorflow compilation, then change CONF_SWAPSIZE back to 100MB after tensorflow shared library is successfully built.
 
-
-##### Tensorflow C++ library (v1.11 or 1.12): 
-The hardest part right here, since there is no convenient pre-built package for C++ developers on the intenet. 
+#### Tensorflow C++ library (v1.11 or 1.12): 
 In my case I train the neural network model on Ubuntu 14.04 using tensorflow v1.11, save the model then load it on Raspbian 9 (Stretch), run prediction code using tensorflow v1.12.
 
 Here are few general steps to build the tensorflow library which works for C++ application:
 
-###### (1) Build Bazel from source
-Build bazel 0.17.0 for tensorflow v1.11, and build bazel 0.19.2 for tensorflow v1.12,
-Be sure to download release version to avoid building issues, see all available release versions from [HERE](https://github.com/bazelbuild/bazel/releases)
+##### (1) Build Bazel from source
+We built bazel 0.17.0 for tensorflow v1.11, and built bazel 0.19.2 for tensorflow v1.12.
+Be sure to download release version to avoid building issues, see all available release versions from [HERE](https://github.com/bazelbuild/bazel/releases).
+
+Note that bazel supports only few CPU architecture like x86 and ARMv7-A, which means it does NOT support Raspberry PI model 1 because its CPU is based on ARMv6, please recheck the CPU architecture of your Raspberry Pi.
 
 - In command-line interface, you have:
    ```Shell
@@ -22,36 +25,36 @@ Be sure to download release version to avoid building issues, see all available 
    sudo chmod u+w ./* -R
    ```
 
-- following environment variable will be referenced when building bazel binary, set java heap to 1 GB to avoid Java out-of-memory exception. If out-of-memory exception still turns up and you're sure to add this option, maybe you can try increasing Java heap space e.g. -J-Xmx2g
-```
-export BAZEL_JAVAC_OPT="-J-Xmx1g "
-```
+- Following environment variable will be referred to Bazel when building from scratch, you can allocate more memory to java heap (1 GB, in my case) in order to avoid out-of-memory exception (see issue [HERE](https://github.com/bazelbuild/bazel/issues/1308)). If out-of-memory exception still turns up and you already added this option, maybe you can try increasing Java heap space e.g. -J-Xmx2g
+  ```
+  export BAZEL_JAVAC_OPT="-J-Xmx1g "
+  ```
+
 - then start building from source, it takes several hours.
-```
-./compile.sh
-```
-- after compilation finished, copy the binary to :
+  ```
+  ./compile.sh
+  ```
+- after compilation finished, copy the binary to following path, type bazel to see if it works:
    ```
    sudo cp output/bazel /usr/local/bin/bazel
    ```
 
 
 ###### use compiled Bazel binary to build tensorflow C++ API from source
-check out tensorflow repository then roll back to previous release version v1.12 (commit ID: a6d8ffa)
-```
-git clone https://github.com/tensorflow/tensorflow.git
-cd tensorflow
-git checkout r1.12
-```
-you can recheck if you're already under v1.12 release branch using git branch or git log.
+- check out tensorflow repository then roll back to previous release version v1.12 (commit ID: a6d8ffa)
+   ```
+   git clone https://github.com/tensorflow/tensorflow.git
+   cd tensorflow
+   git checkout r1.12
+   ```
+   you can recheck if you're already under v1.12 release branch using git branch or git log. (Note: see  other available releases from [HERE](https://github.com/tensorflow/tensorflow/releases) )
 
 
-According to [issue #24372](https://github.com/tensorflow/tensorflow/issues/24372), we must apply 2 patches downloaded from [HERE](https://gist.github.com/fyhertz/4cef0b696b37d38964801d3ef21e8ce2).
-
-download the zip file, extract, then apply
-```
-git am YOUR_PATCH_NAME.patch
-```
+- According to [issue #24372](https://github.com/tensorflow/tensorflow/issues/24372), if you compile tensorflow branch v1.12 right after previous step you will run into linking error like [THIS]() , so we must apply 2 patches downloaded from [HERE](https://gist.github.com/fyhertz/4cef0b696b37d38964801d3ef21e8ce2).
+  download the zip file, extract, then apply
+  ```
+  git am YOUR_PATCH_NAME.patch
+  ```
 
 clean up previous build
 ```
@@ -109,6 +112,29 @@ Preconfigured Bazel build configs to DISABLE default on features:
 Configuration finished
 ```
 
+According to this page, users are supposed to run "bazel test" prior to "bazel build <YOUR_OPTIONS>"
+```
+tf v1.12
+--------------------- bazel test java out of memory ---------------------
+
+ERROR: bazel crash in async thread:
+ERROR: bazel crash in async thread:
+
+java.lang.OutOfMemoryError: Java heap space
+        at com.google.common.io.ByteStreams.toByteArrayInternal(ByteStreams.java:176)
+        at com.google.common.io.ByteStreams.toByteArray(ByteStreams.java:221)
+        at com.google.common.io.ByteSource.read(ByteSource.java:289)
+        at com.google.devtools.build.lib.vfs.FileSystemUtils.readContent(FileSystemUtils.java:835)
+        at com.google.devtools.build.lib.vfs.FileSystemUtils.readContentAsLatin1(FileSystemUtils.java:804)
+        at com.google.devtools.build.lib.server.GrpcServerImpl$PidFileWatcherThread.run(GrpcServerImpl.java:472)
+java.lang.OutOfMemoryError: Java heap space
+        at java.util.concurrent.ConcurrentHashMap.transfer(ConcurrentHashMap.java:2450)
+        at java.util.concurrent.ConcurrentHashMap.addCount(ConcurrentHashMap.java:2288)
+        at java.util.concurrent.ConcurrentHashMap.putVal(ConcurrentHashMap.java:1070)
+
+Server terminated abruptly (error code: 14, error message: '', log file: '/home/pi/.cache/bazel/_bazel_pi/0b3a56398e8b5b41f08cb1aee4909967/server/jvm.out')
+```
+
 then start building (~12 hours)
 - **NOTE**
   if you build tensorflow from source, be sure to add the options shown at the end of ./configure, to disable the function you don't need.
@@ -139,123 +165,11 @@ Let's break down the options a little bit:
 https://gist.github.com/EKami/9869ae6347f68c592c5b5cd181a3b205
 
 
+#### Errors you may encounter during the build procedure.
 
-
----------------------------------------------
-to-do : error message I got so far :
-
-
-
-
-compile Bazel 0.21.0 on raspbain stretch
- Configurable attribute "actual" doesn't match this configuration: Could not find a JDK for host execution environment, please explicitly provide one using `--host_javabase.`
-
-
- ----------------------------------- error when compiling tensorflow (branch origin / master) -----------------------------------
-ERROR: /home/pi/open_src/tensorflow/1.12/tensorflow-master/tensorflow/core/kernels/BUILD:2919:1: C++ compilation of rule '//tensorflow/core/kernels:matrix_square_root_op' failed (Exit 1): gcc failed: error executing command
-  (cd /home/pi/.cache/bazel/_bazel_pi/fd3a3edf6b94d1539919e6f15e50731b/execroot/org_tensorflow && \
-  exec env - \
-    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games \
-    PWD=/proc/self/cwd \
-    PYTHON_BIN_PATH=/usr/bin/python \
-    PYTHON_LIB_PATH=/usr/local/lib/python2.7/dist-packages \
-    TF_DOWNLOAD_CLANG=0 \
-    TF_NEED_CUDA=0 \
-    TF_NEED_OPENCL_SYCL=0 \
-    TF_NEED_ROCM=0 \
-  /usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -B/usr/bin -B/usr/bin -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -g0 -O2 '-D_FORTIFY_SOURCE=1' -DNDEBUG -ffunction-sections -fdata-sections '-std=c++0x' -MD -MF bazel-out/arm-opt/bin/tensorflow/core/kernels/_objs/matrix_square_root_op/matrix_square_root_op.pic.d '-frandom-seed=bazel-out/arm-opt/bin/tensorflow/core/kernels/_objs/matrix_square_root_op/matrix_square_root_op.pic.o' -fPIC -D__CLANG_SUPPORT_DYN_ANNOTATION__ -DEIGEN_MPL2_ONLY '-DEIGEN_MAX_ALIGN_BYTES=64' '-DEIGEN_HAS_TYPE_TRAITS=0' -DTF_USE_SNAPPY -iquote . -iquote bazel-out/arm-opt/genfiles -iquote bazel-out/arm-opt/bin -iquote external/com_google_absl -iquote bazel-out/arm-opt/genfiles/external/com_google_absl -iquote bazel-out/arm-opt/bin/external/com_google_absl -iquote external/bazel_tools -iquote bazel-out/arm-opt/genfiles/external/bazel_tools -iquote bazel-out/arm-opt/bin/external/bazel_tools -iquote external/eigen_archive -iquote bazel-out/arm-opt/genfiles/external/eigen_archive -iquote bazel-out/arm-opt/bin/external/eigen_archive -iquote external/local_config_sycl -iquote bazel-out/arm-opt/genfiles/external/local_config_sycl -iquote bazel-out/arm-opt/bin/external/local_config_sycl -iquote external/nsync -iquote bazel-out/arm-opt/genfiles/external/nsync -iquote bazel-out/arm-opt/bin/external/nsync -iquote external/gif_archive -iquote bazel-out/arm-opt/genfiles/external/gif_archive -iquote bazel-out/arm-opt/bin/external/gif_archive -iquote external/jpeg -iquote bazel-out/arm-opt/genfiles/external/jpeg -iquote bazel-out/arm-opt/bin/external/jpeg -iquote external/protobuf_archive -iquote bazel-out/arm-opt/genfiles/external/protobuf_archive -iquote bazel-out/arm-opt/bin/external/protobuf_archive -iquote external/com_googlesource_code_re2 -iquote bazel-out/arm-opt/genfiles/external/com_googlesource_code_re2 -iquote bazel-out/arm-opt/bin/external/com_googlesource_code_re2 -iquote external/farmhash_archive -iquote bazel-out/arm-opt/genfiles/external/farmhash_archive -iquote bazel-out/arm-opt/bin/external/farmhash_archive -iquote external/fft2d -iquote bazel-out/arm-opt/genfiles/external/fft2d -iquote bazel-out/arm-opt/bin/external/fft2d -iquote external/highwayhash -iquote bazel-out/arm-opt/genfiles/external/highwayhash -iquote bazel-out/arm-opt/bin/external/highwayhash -iquote external/zlib_archive -iquote bazel-out/arm-opt/genfiles/external/zlib_archive -iquote bazel-out/arm-opt/bin/external/zlib_archive -isystem external/eigen_archive -isystem bazel-out/arm-opt/genfiles/external/eigen_archive -isystem bazel-out/arm-opt/bin/external/eigen_archive -isystem external/nsync/public -isystem bazel-out/arm-opt/genfiles/external/nsync/public -isystem bazel-out/arm-opt/bin/external/nsync/public -isystem external/gif_archive/lib -isystem bazel-out/arm-opt/genfiles/external/gif_archive/lib -isystem bazel-out/arm-opt/bin/external/gif_archive/lib -isystem external/protobuf_archive/src -isystem bazel-out/arm-opt/genfiles/external/protobuf_archive/src -isystem bazel-out/arm-opt/bin/external/protobuf_archive/src -isystem external/farmhash_archive/src -isystem bazel-out/arm-opt/genfiles/external/farmhash_archive/src -isystem bazel-out/arm-opt/bin/external/farmhash_archive/src -isystem external/zlib_archive -isystem bazel-out/arm-opt/genfiles/external/zlib_archive -isystem bazel-out/arm-opt/bin/external/zlib_archive -funsafe-math-optimizations '-mfpu=neon-vfpv4' -ftree-vectorize -fomit-frame-pointer -DEIGEN_AVOID_STL_ARRAY -Iexternal/gemmlowp -Wno-sign-compare -fno-exceptions '-ftemplate-depth=900' -pthread -fno-canonical-system-headers -Wno-builtin-macro-redefined '-D__DATE__="redacted"' '-D__TIMESTAMP__="redacted"' '-D__TIME__="redacted"' -c tensorflow/core/kernels/matrix_square_root_op.cc -o bazel-out/arm-opt/bin/tensorflow/core/kernels/_objs/matrix_square_root_op/matrix_square_root_op.pic.o)
-virtual memory exhausted: Cannot allocate memory
-Target //tensorflow:libtensorflow_cc.so failed to build
-INFO: Elapsed time: 5725.553s, Critical Path: 5711.34s, Remote (0.00% of the time): [queue: 0.00%, setup: 0.00%, process: 0.00%]
-INFO: 182 processes: 182 local.
-FAILED: Build did NOT complete successfully
-pi@raspberrypi:~/open_src/tensorflow/1.12/tensorflow-master$
-
-
-
-tf v1.12
---------------------- bazel test java out of memory ---------------------
-
-ERROR: bazel crash in async thread:
-ERROR: bazel crash in async thread:
-
-java.lang.OutOfMemoryError: Java heap space
-        at com.google.common.io.ByteStreams.toByteArrayInternal(ByteStreams.java:176)
-        at com.google.common.io.ByteStreams.toByteArray(ByteStreams.java:221)
-        at com.google.common.io.ByteSource.read(ByteSource.java:289)
-        at com.google.devtools.build.lib.vfs.FileSystemUtils.readContent(FileSystemUtils.java:835)
-        at com.google.devtools.build.lib.vfs.FileSystemUtils.readContentAsLatin1(FileSystemUtils.java:804)
-        at com.google.devtools.build.lib.server.GrpcServerImpl$PidFileWatcherThread.run(GrpcServerImpl.java:472)
-java.lang.OutOfMemoryError: Java heap space
-        at java.util.concurrent.ConcurrentHashMap.transfer(ConcurrentHashMap.java:2450)
-        at java.util.concurrent.ConcurrentHashMap.addCount(ConcurrentHashMap.java:2288)
-        at java.util.concurrent.ConcurrentHashMap.putVal(ConcurrentHashMap.java:1070)
-
-Server terminated abruptly (error code: 14, error message: '', log file: '/home/pi/.cache/bazel/_bazel_pi/0b3a56398e8b5b41f08cb1aee4909967/server/jvm.out')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-------------------- error when doing bazel test -------------------
-
-(https://github.com/tensorflow/probability). Deprecated copies remaining in tf.contrib.distributions are unmaintained, unsupported, and will be removed by late 2018. You should update all usage of `tf.contrib.distributions` to `tfp.distributions`.
-WARNING: /home/pi/open_src/tensorflow/1.12/tensorflow/tensorflow/contrib/BUILD:13:1: in py_library rule //tensorflow/contrib:contrib_py: target '//tensorflow/contrib:contrib_py' depends on deprecated target '//tensorflow/contrib/distributions:distributions_py': TensorFlow Distributions has migrated to TensorFlow Probability (https://github.com/tensorflow/probability). Deprecated copies remaining in tf.contrib.distributions are unmaintained, unsupported, and will be removed by late 2018. You should update all usage of `tf.contrib.distributions` to `tfp.distributions`.
-Analyzing: 5665 targets (511 packages loaded, 25541 targets configured)
-    Fetching http://storage.googleapis.com/...8_07_18.tar.gz; 40,648,704b 528s
-
-Server terminated abruptly (error code: 14, error message: '', log file: '/home/pi/.cache/bazel/_bazel_pi/0b3a56398e8b5b41f08cb1aee4909967/server/jvm.out')
-
-pi@raspberrypi:~/open_src/tensorflow/1.12/ten
-
-
-
-
-
-------------------- error on bazel build (bazel, 0.19.2, tf r1.12) -------------------
-ERROR: /home/pi/.cache/bazel/_bazel_pi/0b3a56398e8b5b41f08cb1aee4909967/external/grpc/BUILD:1332:1: C++ compilation of rule '@grpc//:grpc_resolver_dns_ares' failed (Exit 1) gcc failed: error executing command
-  (cd /home/pi/.cache/bazel/_bazel_pi/0b3a56398e8b5b41f08cb1aee4909967/execroot/org_tensorflow && \
-  exec env - \
-    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games \
-    PWD=/proc/self/cwd \
-    PYTHON_BIN_PATH=/usr/bin/python \
-    PYTHON_LIB_PATH=/usr/local/lib/python2.7/dist-packages \
-    TF_DOWNLOAD_CLANG=0 \
-    TF_NEED_CUDA=0 \
-    TF_NEED_OPENCL_SYCL=0 \
-    TF_NEED_ROCM=0 \
-  /usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -B/usr/bin -B/usr/bin -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -g0 -O2 '-D_FORTIFY_SOURCE=1' -DNDEBUG -ffunction-sections -fdata-sections '-std=c++0x' -MD -MF bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_ev_driver_posix.pic.d '-frandom-seed=bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_ev_driver_posix.pic.o' -fPIC -iquote external/grpc -iquote bazel-out/arm-opt/genfiles/external/grpc -iquote bazel-out/arm-opt/bin/external/grpc -iquote external/bazel_tools -iquote bazel-out/arm-opt/genfiles/external/bazel_tools -iquote bazel-out/arm-opt/bin/external/bazel_tools -iquote external/zlib_archive -iquote bazel-out/arm-opt/genfiles/external/zlib_archive -iquote bazel-out/arm-opt/bin/external/zlib_archive -isystem external/grpc/include -isystem bazel-out/arm-opt/genfiles/external/grpc/include -isystem bazel-out/arm-opt/bin/external/grpc/include -isystem external/zlib_archive -isystem bazel-out/arm-opt/genfiles/external/zlib_archive -isystem bazel-out/arm-opt/bin/external/zlib_archive -isystem external/grpc/third_party/address_sorting/include -isystem bazel-out/arm-opt/genfiles/external/grpc/third_party/address_sorting/include -isystem bazel-out/arm-opt/bin/external/grpc/third_party/address_sorting/include '-mfpu=neon-vfpv4' -funsafe-math-optimizations -ftree-vectorize -fomit-frame-pointer -fno-canonical-system-headers -Wno-builtin-macro-redefined '-D__DATE__="redacted"' '-D__TIMESTAMP__="redacted"' '-D__TIME__="redacted"' -c external/grpc/src/core/ext/filters/client_channel/resolver/dns/c_ares/grpc_ares_ev_driver_posix.cc -o bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_ev_driver_posix.pic.o)
-
-Use --sandbox_debug to see verbose messages from the sandbox: gcc failed: error executing command
-  (cd /home/pi/.cache/bazel/_bazel_pi/0b3a56398e8b5b41f08cb1aee4909967/execroot/org_tensorflow && \
-  exec env - \
-    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games \
-    PWD=/proc/self/cwd \
-    PYTHON_BIN_PATH=/usr/bin/python \
-    PYTHON_LIB_PATH=/usr/local/lib/python2.7/dist-packages \
-    TF_DOWNLOAD_CLANG=0 \
-    TF_NEED_CUDA=0 \
-    TF_NEED_OPENCL_SYCL=0 \
-    TF_NEED_ROCM=0 \
-  /usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -B/usr/bin -B/usr/bin -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -g0 -O2 '-D_FORTIFY_SOURCE=1' -DNDEBUG -ffunction-sections -fdata-sections '-std=c++0x' -MD -MF bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_ev_driver_posix.pic.d '-frandom-seed=bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_ev_driver_posix.pic.o' -fPIC -iquote external/grpc -iquote bazel-out/arm-opt/genfiles/external/grpc -iquote bazel-out/arm-opt/bin/external/grpc -iquote external/bazel_tools -iquote bazel-out/arm-opt/genfiles/external/bazel_tools -iquote bazel-out/arm-opt/bin/external/bazel_tools -iquote external/zlib_archive -iquote bazel-out/arm-opt/genfiles/external/zlib_archive -iquote bazel-out/arm-opt/bin/external/zlib_archive -isystem external/grpc/include -isystem bazel-out/arm-opt/genfiles/external/grpc/include -isystem bazel-out/arm-opt/bin/external/grpc/include -isystem external/zlib_archive -isystem bazel-out/arm-opt/genfiles/external/zlib_archive -isystem bazel-out/arm-opt/bin/external/zlib_archive -isystem external/grpc/third_party/address_sorting/include -isystem bazel-out/arm-opt/genfiles/external/grpc/third_party/address_sorting/include -isystem bazel-out/arm-opt/bin/external/grpc/third_party/address_sorting/include '-mfpu=neon-vfpv4' -funsafe-math-optimizations -ftree-vectorize -fomit-frame-pointer -fno-canonical-system-headers -Wno-builtin-macro-redefined '-D__DATE__="redacted"' '-D__TIMESTAMP__="redacted"' '-D__TIME__="redacted"' -c external/grpc/src/core/ext/filters/client_channel/resolver/dns/c_ares/grpc_ares_ev_driver_posix.cc -o bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_ev_driver_posix.pic.o)
-
-Use --sandbox_debug to see verbose messages from the sandbox
-external/grpc/src/core/ext/filters/client_channel/resolver/dns/c_ares/grpc_ares_ev_driver_posix.cc:23:18: fatal error: ares.h: No such file or directory
- #include <ares.h>
-                  ^
-compilation terminated.
-
----------- try sudo apt-get install libc-ares-dev ....
-
+######ERROR 1
+AWS functionality shouldn't be present in my case, howver in the release branch r1.12, the option was removed in ./configure , you would end up with linking error as following:
+```
 ERROR: /home/pi/open_src/tensorflow/1.12/tensorflow/tensorflow/BUILD:449:1: Linking of rule '//tensorflow:libtensorflow_cc.so' failed (Exit 1) gcc failed: error executing command
   (cd /home/pi/.cache/bazel/_bazel_pi/0b3a56398e8b5b41f08cb1aee4909967/execroot/org_tensorflow && \
   exec env - \
@@ -384,6 +298,60 @@ bazel-out/arm-opt/bin/external/aws/_objs/aws/TempFile.pic.o:TempFile.cpp:functio
 bazel-out/arm-opt/bin/tensorflow/core/kernels/_objs/list_kernels/list_kernels.pic.o:list_kernels.cc:function tensorflow::TensorListStack<Eigen::ThreadPoolDevice, tensorflow::bfloat16>::Compute(tensorflow::OpKernelContext*): error: undefined reference to 'void tensorflow::ConcatCPU<tensorflow::bfloat16>(tensorflow::DeviceBase*, std::vector<std::unique_ptr<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix, std::default_delete<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix> >, std::allocator<std::unique_ptr<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix, std::default_delete<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix> > > > const&, tensorflow::TTypes<tensorflow::bfloat16, 2, int>::Matrix*)'
 bazel-out/arm-opt/bin/tensorflow/core/kernels/_objs/list_kernels/list_kernels.pic.o:list_kernels.cc:function tensorflow::TensorListGather<Eigen::ThreadPoolDevice, tensorflow::bfloat16>::Compute(tensorflow::OpKernelContext*): error: undefined reference to 'void tensorflow::ConcatCPU<tensorflow::bfloat16>(tensorflow::DeviceBase*, std::vector<std::unique_ptr<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix, std::default_delete<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix> >, std::allocator<std::unique_ptr<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix, std::default_delete<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix> > > > const&, tensorflow::TTypes<tensorflow::bfloat16, 2, int>::Matrix*)'
 collect2: error: ld returned 1 exit status
+
+```
+
+
+
+
+
+
+
+
+---------------------------------------------
+compile Bazel 0.21.0 on raspbain stretch
+ Configurable attribute "actual" doesn't match this configuration: Could not find a JDK for host execution environment, please explicitly provide one using `--host_javabase.`
+
+ ----------------------------------- error when compiling tensorflow (branch origin / master) -----------------------------------
+ERROR: /home/pi/open_src/tensorflow/1.12/tensorflow-master/tensorflow/core/kernels/BUILD:2919:1: C++ compilation of rule '//tensorflow/core/kernels:matrix_square_root_op' failed (Exit 1): gcc failed: error executing command
+  (cd /home/pi/.cache/bazel/_bazel_pi/fd3a3edf6b94d1539919e6f15e50731b/execroot/org_tensorflow && \
+  exec env - \
+    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games \
+    PWD=/proc/self/cwd \
+    PYTHON_BIN_PATH=/usr/bin/python \
+    PYTHON_LIB_PATH=/usr/local/lib/python2.7/dist-packages \
+    TF_DOWNLOAD_CLANG=0 \
+    TF_NEED_CUDA=0 \
+    TF_NEED_OPENCL_SYCL=0 \
+    TF_NEED_ROCM=0 \
+  /usr/bin/gcc -U_FORTIFY_SOURCE -fstack-protector -Wall -B/usr/bin -B/usr/bin -Wunused-but-set-parameter -Wno-free-nonheap-object -fno-omit-frame-pointer -g0 -O2 '-D_FORTIFY_SOURCE=1' -DNDEBUG -ffunction-sections -fdata-sections '-std=c++0x' -MD -MF bazel-out/arm-opt/bin/tensorflow/core/kernels/_objs/matrix_square_root_op/matrix_square_root_op.pic.d '-frandom-seed=bazel-out/arm-opt/bin/tensorflow/core/kernels/_objs/matrix_square_root_op/matrix_square_root_op.pic.o' -fPIC -D__CLANG_SUPPORT_DYN_ANNOTATION__ -DEIGEN_MPL2_ONLY '-DEIGEN_MAX_ALIGN_BYTES=64' '-DEIGEN_HAS_TYPE_TRAITS=0' -DTF_USE_SNAPPY -iquote . -iquote bazel-out/arm-opt/genfiles -iquote bazel-out/arm-opt/bin -iquote external/com_google_absl -iquote bazel-out/arm-opt/genfiles/external/com_google_absl -iquote bazel-out/arm-opt/bin/external/com_google_absl -iquote external/bazel_tools -iquote bazel-out/arm-opt/genfiles/external/bazel_tools -iquote bazel-out/arm-opt/bin/external/bazel_tools -iquote external/eigen_archive -iquote bazel-out/arm-opt/genfiles/external/eigen_archive -iquote bazel-out/arm-opt/bin/external/eigen_archive -iquote external/local_config_sycl -iquote bazel-out/arm-opt/genfiles/external/local_config_sycl -iquote bazel-out/arm-opt/bin/external/local_config_sycl -iquote external/nsync -iquote bazel-out/arm-opt/genfiles/external/nsync -iquote bazel-out/arm-opt/bin/external/nsync -iquote external/gif_archive -iquote bazel-out/arm-opt/genfiles/external/gif_archive -iquote bazel-out/arm-opt/bin/external/gif_archive -iquote external/jpeg -iquote bazel-out/arm-opt/genfiles/external/jpeg -iquote bazel-out/arm-opt/bin/external/jpeg -iquote external/protobuf_archive -iquote bazel-out/arm-opt/genfiles/external/protobuf_archive -iquote bazel-out/arm-opt/bin/external/protobuf_archive -iquote external/com_googlesource_code_re2 -iquote bazel-out/arm-opt/genfiles/external/com_googlesource_code_re2 -iquote bazel-out/arm-opt/bin/external/com_googlesource_code_re2 -iquote external/farmhash_archive -iquote bazel-out/arm-opt/genfiles/external/farmhash_archive -iquote bazel-out/arm-opt/bin/external/farmhash_archive -iquote external/fft2d -iquote bazel-out/arm-opt/genfiles/external/fft2d -iquote bazel-out/arm-opt/bin/external/fft2d -iquote external/highwayhash -iquote bazel-out/arm-opt/genfiles/external/highwayhash -iquote bazel-out/arm-opt/bin/external/highwayhash -iquote external/zlib_archive -iquote bazel-out/arm-opt/genfiles/external/zlib_archive -iquote bazel-out/arm-opt/bin/external/zlib_archive -isystem external/eigen_archive -isystem bazel-out/arm-opt/genfiles/external/eigen_archive -isystem bazel-out/arm-opt/bin/external/eigen_archive -isystem external/nsync/public -isystem bazel-out/arm-opt/genfiles/external/nsync/public -isystem bazel-out/arm-opt/bin/external/nsync/public -isystem external/gif_archive/lib -isystem bazel-out/arm-opt/genfiles/external/gif_archive/lib -isystem bazel-out/arm-opt/bin/external/gif_archive/lib -isystem external/protobuf_archive/src -isystem bazel-out/arm-opt/genfiles/external/protobuf_archive/src -isystem bazel-out/arm-opt/bin/external/protobuf_archive/src -isystem external/farmhash_archive/src -isystem bazel-out/arm-opt/genfiles/external/farmhash_archive/src -isystem bazel-out/arm-opt/bin/external/farmhash_archive/src -isystem external/zlib_archive -isystem bazel-out/arm-opt/genfiles/external/zlib_archive -isystem bazel-out/arm-opt/bin/external/zlib_archive -funsafe-math-optimizations '-mfpu=neon-vfpv4' -ftree-vectorize -fomit-frame-pointer -DEIGEN_AVOID_STL_ARRAY -Iexternal/gemmlowp -Wno-sign-compare -fno-exceptions '-ftemplate-depth=900' -pthread -fno-canonical-system-headers -Wno-builtin-macro-redefined '-D__DATE__="redacted"' '-D__TIMESTAMP__="redacted"' '-D__TIME__="redacted"' -c tensorflow/core/kernels/matrix_square_root_op.cc -o bazel-out/arm-opt/bin/tensorflow/core/kernels/_objs/matrix_square_root_op/matrix_square_root_op.pic.o)
+virtual memory exhausted: Cannot allocate memory
+Target //tensorflow:libtensorflow_cc.so failed to build
+INFO: Elapsed time: 5725.553s, Critical Path: 5711.34s, Remote (0.00% of the time): [queue: 0.00%, setup: 0.00%, process: 0.00%]
+INFO: 182 processes: 182 local.
+FAILED: Build did NOT complete successfully
+pi@raspberrypi:~/open_src/tensorflow/1.12/tensorflow-master$
+
+
+
+
+------------------- error when doing bazel test -------------------
+
+(https://github.com/tensorflow/probability). Deprecated copies remaining in tf.contrib.distributions are unmaintained, unsupported, and will be removed by late 2018. You should update all usage of `tf.contrib.distributions` to `tfp.distributions`.
+WARNING: /home/pi/open_src/tensorflow/1.12/tensorflow/tensorflow/contrib/BUILD:13:1: in py_library rule //tensorflow/contrib:contrib_py: target '//tensorflow/contrib:contrib_py' depends on deprecated target '//tensorflow/contrib/distributions:distributions_py': TensorFlow Distributions has migrated to TensorFlow Probability (https://github.com/tensorflow/probability). Deprecated copies remaining in tf.contrib.distributions are unmaintained, unsupported, and will be removed by late 2018. You should update all usage of `tf.contrib.distributions` to `tfp.distributions`.
+Analyzing: 5665 targets (511 packages loaded, 25541 targets configured)
+    Fetching http://storage.googleapis.com/...8_07_18.tar.gz; 40,648,704b 528s
+
+Server terminated abruptly (error code: 14, error message: '', log file: '/home/pi/.cache/bazel/_bazel_pi/0b3a56398e8b5b41f08cb1aee4909967/server/jvm.out')
+
+pi@raspberrypi:~/open_src/tensorflow/1.12/ten
+
+
+
+
+
+------------------- error on bazel build (bazel, 0.19.2, tf r1.12) -------------------
+---------- try sudo apt-get install libc-ares-dev ....
 
 
 
