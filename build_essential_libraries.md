@@ -50,7 +50,7 @@ Note that bazel supports only few CPU architecture like x86 and ARMv7-A, which m
    you can recheck if you're already under v1.12 release branch using git branch or git log. (Note: see  other available releases from [HERE](https://github.com/tensorflow/tensorflow/releases) )
 
 
-- According to [issue #24372](https://github.com/tensorflow/tensorflow/issues/24372), if you compile tensorflow branch v1.12 right after previous step you will run into linking error like [THIS]() , so we must apply 2 patches downloaded from [HERE](https://gist.github.com/fyhertz/4cef0b696b37d38964801d3ef21e8ce2).
+- According to [issue #24372](https://github.com/tensorflow/tensorflow/issues/24372), if you compile tensorflow branch v1.12 right after previous step you will run into [linking error like THIS](build_essential_libraries.md#ERROR1) , so we must apply 2 patches downloaded from [HERE](https://gist.github.com/fyhertz/4cef0b696b37d38964801d3ef21e8ce2).
   download the zip file, extract, then apply
   ```
   git am YOUR_PATCH_NAME.patch
@@ -112,28 +112,8 @@ Preconfigured Bazel build configs to DISABLE default on features:
 Configuration finished
 ```
 
-According to this page, users are supposed to run "bazel test" prior to "bazel build <YOUR_OPTIONS>"
-```
-tf v1.12
---------------------- bazel test java out of memory ---------------------
+According to [this page](https://www.tensorflow.org/install/source), users can run optional command **bazel test** prior to **bazel build <YOUR_OPTIONS>**, it's also OK to directly run **bazel build** without **bazel test**.
 
-ERROR: bazel crash in async thread:
-ERROR: bazel crash in async thread:
-
-java.lang.OutOfMemoryError: Java heap space
-        at com.google.common.io.ByteStreams.toByteArrayInternal(ByteStreams.java:176)
-        at com.google.common.io.ByteStreams.toByteArray(ByteStreams.java:221)
-        at com.google.common.io.ByteSource.read(ByteSource.java:289)
-        at com.google.devtools.build.lib.vfs.FileSystemUtils.readContent(FileSystemUtils.java:835)
-        at com.google.devtools.build.lib.vfs.FileSystemUtils.readContentAsLatin1(FileSystemUtils.java:804)
-        at com.google.devtools.build.lib.server.GrpcServerImpl$PidFileWatcherThread.run(GrpcServerImpl.java:472)
-java.lang.OutOfMemoryError: Java heap space
-        at java.util.concurrent.ConcurrentHashMap.transfer(ConcurrentHashMap.java:2450)
-        at java.util.concurrent.ConcurrentHashMap.addCount(ConcurrentHashMap.java:2288)
-        at java.util.concurrent.ConcurrentHashMap.putVal(ConcurrentHashMap.java:1070)
-
-Server terminated abruptly (error code: 14, error message: '', log file: '/home/pi/.cache/bazel/_bazel_pi/0b3a56398e8b5b41f08cb1aee4909967/server/jvm.out')
-```
 
 then start building (~12 hours)
 - **NOTE**
@@ -152,9 +132,10 @@ bazel build -c opt --copt="-mfpu=neon-vfpv4" --copt="-funsafe-math-optimizations
 ```
 Let's break down the options a little bit:
 
-- noaws
-- grpc_no_ares=true
-- -DRASPBERRY_PI
+- --config=noaws
+  According to issue HERE
+- --define=grpc_no_ares=true
+- --copt=-DRASPBERRY_PI
 - local_resources 1024,1.0,1.0
 
 
@@ -167,8 +148,8 @@ https://gist.github.com/EKami/9869ae6347f68c592c5b5cd181a3b205
 
 #### Errors you may encounter during the build procedure.
 
-######ERROR 1
-AWS functionality shouldn't be present in my case, howver in the release branch r1.12, the option was removed in ./configure , you would end up with linking error as following:
+# ERROR1
+AWS functionality is NOT present in my case, however in the release branch r1.12 users cannot disable AWS support through ./configure , you would end up with linking error like following:
 ```
 ERROR: /home/pi/open_src/tensorflow/1.12/tensorflow/tensorflow/BUILD:449:1: Linking of rule '//tensorflow:libtensorflow_cc.so' failed (Exit 1) gcc failed: error executing command
   (cd /home/pi/.cache/bazel/_bazel_pi/0b3a56398e8b5b41f08cb1aee4909967/execroot/org_tensorflow && \
@@ -183,106 +164,8 @@ ERROR: /home/pi/open_src/tensorflow/1.12/tensorflow/tensorflow/BUILD:449:1: Link
     TF_NEED_ROCM=0 \
   /usr/bin/gcc -shared -o bazel-out/arm-opt/bin/tensorflow/libtensorflow_cc.so -z defs -Wl,--version-script tensorflow/tf_version_script.lds '-Wl,-rpath,$ORIGIN/' -Wl,-soname,libtensorflow_cc.so -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread '-fuse-ld=gold' -Wl,-no-as-needed -Wl,-z,relro,-z,now -B/usr/bin -B/usr/bin -pass-exit-codes -Wl,--gc-sections -Wl,@bazel-out/arm-opt/bin/tensorflow/libtensorflow_cc.so-2.params)
 
-Use --sandbox_debug to see verbose messages from the sandbox: gcc failed: error executing command
-  (cd /home/pi/.cache/bazel/_bazel_pi/0b3a56398e8b5b41f08cb1aee4909967/execroot/org_tensorflow && \
-  exec env - \
-    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games \
-    PWD=/proc/self/cwd \
-    PYTHON_BIN_PATH=/usr/bin/python \
-    PYTHON_LIB_PATH=/usr/local/lib/python2.7/dist-packages \
-    TF_DOWNLOAD_CLANG=0 \
-    TF_NEED_CUDA=0 \
-    TF_NEED_OPENCL_SYCL=0 \
-    TF_NEED_ROCM=0 \
-  /usr/bin/gcc -shared -o bazel-out/arm-opt/bin/tensorflow/libtensorflow_cc.so -z defs -Wl,--version-script tensorflow/tf_version_script.lds '-Wl,-rpath,$ORIGIN/' -Wl,-soname,libtensorflow_cc.so -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread '-fuse-ld=gold' -Wl,-no-as-needed -Wl,-z,relro,-z,now -B/usr/bin -B/usr/bin -pass-exit-codes -Wl,--gc-sections -Wl,@bazel-out/arm-opt/bin/tensorflow/libtensorflow_cc.so-2.params)
+.............
 
-
-Use --sandbox_debug to see verbose messages from the sandbox
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_common.pic.o: multiple definition of 'pb_field_iter_begin'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_common.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_common.pic.o: multiple definition of 'pb_field_iter_next'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_common.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_common.pic.o: multiple definition of 'pb_field_iter_find'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_common.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_decode.pic.o: multiple definition of 'pb_read'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_decode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_decode.pic.o: multiple definition of 'pb_istream_from_buffer'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_decode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_decode.pic.o: multiple definition of 'pb_decode_varint'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_decode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_decode.pic.o: multiple definition of 'pb_decode_tag'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_decode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_decode.pic.o: multiple definition of 'pb_skip_field'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_decode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_decode.pic.o: multiple definition of 'pb_make_string_substream'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_decode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_decode.pic.o: multiple definition of 'pb_close_string_substream'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_decode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_decode.pic.o: multiple definition of 'pb_decode_noinit'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_decode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_decode.pic.o: multiple definition of 'pb_decode'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_decode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_decode.pic.o: multiple definition of 'pb_decode_delimited'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_decode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_decode.pic.o: multiple definition of 'pb_decode_svarint'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_decode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_decode.pic.o: multiple definition of 'pb_decode_fixed32'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_decode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_decode.pic.o: multiple definition of 'pb_decode_fixed64'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_decode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_encode.pic.o: multiple definition of 'pb_ostream_from_buffer'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_encode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_encode.pic.o: multiple definition of 'pb_write'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_encode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_encode.pic.o: multiple definition of 'pb_encode_varint'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_encode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_encode.pic.o: multiple definition of 'pb_encode_svarint'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_encode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_encode.pic.o: multiple definition of 'pb_encode_fixed32'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_encode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_encode.pic.o: multiple definition of 'pb_encode_fixed64'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_encode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_encode.pic.o: multiple definition of 'pb_encode_tag'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_encode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_encode.pic.o: multiple definition of 'pb_encode_tag_for_field'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_encode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_encode.pic.o: multiple definition of 'pb_encode'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_encode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_encode.pic.o: multiple definition of 'pb_get_encoded_size'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_encode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_encode.pic.o: multiple definition of 'pb_encode_string'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_encode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_encode.pic.o: multiple definition of 'pb_encode_submessage'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_encode.pic.o: previous definition here
-/usr/bin/ld.gold: error: bazel-out/arm-opt/bin/external/grpc/_objs/grpc_nanopb/pb_encode.pic.o: multiple definition of 'pb_encode_delimited'
-/usr/bin/ld.gold: bazel-out/arm-opt/bin/external/grpc/third_party/nanopb/_objs/nanopb/pb_encode.pic.o: previous definition here
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_ev_driver_posix.pic.o:grpc_ares_ev_driver_posix.cc:function grpc_ares_ev_driver_unref(grpc_ares_ev_driver*): error: undefined reference to 'ares_destroy'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_ev_driver_posix.pic.o:grpc_ares_ev_driver_posix.cc:function grpc_ares_notify_on_event_locked(grpc_ares_ev_driver*): error: undefined reference to 'ares_getsock'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_ev_driver_posix.pic.o:grpc_ares_ev_driver_posix.cc:function on_writable_cb(void*, grpc_error*): error: undefined reference to 'ares_cancel'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_ev_driver_posix.pic.o:grpc_ares_ev_driver_posix.cc:function on_writable_cb(void*, grpc_error*): error: undefined reference to 'ares_process_fd'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_ev_driver_posix.pic.o:grpc_ares_ev_driver_posix.cc:function on_readable_cb(void*, grpc_error*): error: undefined reference to 'ares_cancel'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_ev_driver_posix.pic.o:grpc_ares_ev_driver_posix.cc:function on_readable_cb(void*, grpc_error*): error: undefined reference to 'ares_process_fd'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_ev_driver_posix.pic.o:grpc_ares_ev_driver_posix.cc:function grpc_ares_ev_driver_create(grpc_ares_ev_driver**, grpc_pollset_set*): error: undefined reference to 'ares_init'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_ev_driver_posix.pic.o:grpc_ares_ev_driver_posix.cc:function grpc_ares_ev_driver_create(grpc_ares_ev_driver**, grpc_pollset_set*): error: undefined reference to 'ares_strerror'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_wrapper.pic.o:grpc_ares_wrapper.cc:function grpc_dns_lookup_ares_impl(char const*, char const*, char const*, grpc_pollset_set*, grpc_closure*, grpc_lb_addresses**, bool, char**): error: undefined reference to 'ares_set_servers_ports'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_wrapper.pic.o:grpc_ares_wrapper.cc:function grpc_dns_lookup_ares_impl(char const*, char const*, char const*, grpc_pollset_set*, grpc_closure*, grpc_lb_addresses**, bool, char**): error: undefined reference to 'ares_gethostbyname'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_wrapper.pic.o:grpc_ares_wrapper.cc:function grpc_dns_lookup_ares_impl(char const*, char const*, char const*, grpc_pollset_set*, grpc_closure*, grpc_lb_addresses**, bool, char**): error: undefined reference to 'ares_search'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_wrapper.pic.o:grpc_ares_wrapper.cc:function grpc_dns_lookup_ares_impl(char const*, char const*, char const*, grpc_pollset_set*, grpc_closure*, grpc_lb_addresses**, bool, char**): error: undefined reference to 'ares_query'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_wrapper.pic.o:grpc_ares_wrapper.cc:function grpc_dns_lookup_ares_impl(char const*, char const*, char const*, grpc_pollset_set*, grpc_closure*, grpc_lb_addresses**, bool, char**): error: undefined reference to 'ares_gethostbyname'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_wrapper.pic.o:grpc_ares_wrapper.cc:function grpc_dns_lookup_ares_impl(char const*, char const*, char const*, grpc_pollset_set*, grpc_closure*, grpc_lb_addresses**, bool, char**): error: undefined reference to 'ares_strerror'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_wrapper.pic.o:grpc_ares_wrapper.cc:function on_txt_done_cb(void*, int, int, unsigned char*, int): error: undefined reference to 'ares_parse_txt_reply_ext'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_wrapper.pic.o:grpc_ares_wrapper.cc:function on_txt_done_cb(void*, int, int, unsigned char*, int): error: undefined reference to 'ares_free_data'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_wrapper.pic.o:grpc_ares_wrapper.cc:function on_txt_done_cb(void*, int, int, unsigned char*, int): error: undefined reference to 'ares_strerror'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_wrapper.pic.o:grpc_ares_wrapper.cc:function on_txt_done_cb(void*, int, int, unsigned char*, int): error: undefined reference to 'ares_free_data'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_wrapper.pic.o:grpc_ares_wrapper.cc:function on_srv_query_done_cb(void*, int, int, unsigned char*, int): error: undefined reference to 'ares_strerror'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_wrapper.pic.o:grpc_ares_wrapper.cc:function on_srv_query_done_cb(void*, int, int, unsigned char*, int): error: undefined reference to 'ares_parse_srv_reply'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_wrapper.pic.o:grpc_ares_wrapper.cc:function on_srv_query_done_cb(void*, int, int, unsigned char*, int): error: undefined reference to 'ares_free_data'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_wrapper.pic.o:grpc_ares_wrapper.cc:function on_srv_query_done_cb(void*, int, int, unsigned char*, int): error: undefined reference to 'ares_gethostbyname'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_wrapper.pic.o:grpc_ares_wrapper.cc:function on_srv_query_done_cb(void*, int, int, unsigned char*, int): error: undefined reference to 'ares_gethostbyname'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_wrapper.pic.o:grpc_ares_wrapper.cc:function on_hostbyname_done_cb(void*, int, int, hostent*): error: undefined reference to 'ares_inet_ntop'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_wrapper.pic.o:grpc_ares_wrapper.cc:function on_hostbyname_done_cb(void*, int, int, hostent*): error: undefined reference to 'ares_inet_ntop'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_wrapper.pic.o:grpc_ares_wrapper.cc:function grpc_ares_init(): error: undefined reference to 'ares_library_init'
-bazel-out/arm-opt/bin/external/grpc/_objs/grpc_resolver_dns_ares/grpc_ares_wrapper.pic.o:grpc_ares_wrapper.cc:function grpc_ares_cleanup(): error: undefined reference to 'ares_library_cleanup'
 bazel-out/arm-opt/bin/external/aws/_objs/aws/AWSCredentialsProvider.pic.o:AWSCredentialsProvider.cpp:function Aws::Auth::EnvironmentAWSCredentialsProvider::GetAWSCredentials(): error: undefined reference to 'Aws::Environment::GetEnv[abi:cxx11](char const*)'
 bazel-out/arm-opt/bin/external/aws/_objs/aws/AWSCredentialsProvider.pic.o:AWSCredentialsProvider.cpp:function Aws::Auth::EnvironmentAWSCredentialsProvider::GetAWSCredentials(): error: undefined reference to 'Aws::Environment::GetEnv[abi:cxx11](char const*)'
 bazel-out/arm-opt/bin/external/aws/_objs/aws/AWSCredentialsProvider.pic.o:AWSCredentialsProvider.cpp:function Aws::Auth::EnvironmentAWSCredentialsProvider::GetAWSCredentials(): error: undefined reference to 'Aws::Environment::GetEnv[abi:cxx11](char const*)'
@@ -295,8 +178,9 @@ bazel-out/arm-opt/bin/external/aws/_objs/aws/DateTimeCommon.pic.o:DateTimeCommon
 bazel-out/arm-opt/bin/external/aws/_objs/aws/DateTimeCommon.pic.o:DateTimeCommon.cpp:function Aws::Utils::DateTime::ConvertTimestampToGmtStruct() const: error: undefined reference to 'Aws::Time::GMTime(tm*, long)'
 bazel-out/arm-opt/bin/external/aws/_objs/aws/TempFile.pic.o:TempFile.cpp:function .LTHUNK4: error: undefined reference to 'Aws::FileSystem::RemoveFileIfExists(char const*)'
 bazel-out/arm-opt/bin/external/aws/_objs/aws/TempFile.pic.o:TempFile.cpp:function Aws::Utils::ComputeTempFileName(char const*, char const*): error: undefined reference to 'Aws::FileSystem::CreateTempFilePath[abi:cxx11]()'
-bazel-out/arm-opt/bin/tensorflow/core/kernels/_objs/list_kernels/list_kernels.pic.o:list_kernels.cc:function tensorflow::TensorListStack<Eigen::ThreadPoolDevice, tensorflow::bfloat16>::Compute(tensorflow::OpKernelContext*): error: undefined reference to 'void tensorflow::ConcatCPU<tensorflow::bfloat16>(tensorflow::DeviceBase*, std::vector<std::unique_ptr<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix, std::default_delete<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix> >, std::allocator<std::unique_ptr<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix, std::default_delete<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix> > > > const&, tensorflow::TTypes<tensorflow::bfloat16, 2, int>::Matrix*)'
-bazel-out/arm-opt/bin/tensorflow/core/kernels/_objs/list_kernels/list_kernels.pic.o:list_kernels.cc:function tensorflow::TensorListGather<Eigen::ThreadPoolDevice, tensorflow::bfloat16>::Compute(tensorflow::OpKernelContext*): error: undefined reference to 'void tensorflow::ConcatCPU<tensorflow::bfloat16>(tensorflow::DeviceBase*, std::vector<std::unique_ptr<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix, std::default_delete<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix> >, std::allocator<std::unique_ptr<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix, std::default_delete<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix> > > > const&, tensorflow::TTypes<tensorflow::bfloat16, 2, int>::Matrix*)'
+
+.......................<other log messages>.......................
+
 collect2: error: ld returned 1 exit status
 
 ```
@@ -335,81 +219,10 @@ pi@raspberrypi:~/open_src/tensorflow/1.12/tensorflow-master$
 
 
 
-------------------- error when doing bazel test -------------------
-
-(https://github.com/tensorflow/probability). Deprecated copies remaining in tf.contrib.distributions are unmaintained, unsupported, and will be removed by late 2018. You should update all usage of `tf.contrib.distributions` to `tfp.distributions`.
-WARNING: /home/pi/open_src/tensorflow/1.12/tensorflow/tensorflow/contrib/BUILD:13:1: in py_library rule //tensorflow/contrib:contrib_py: target '//tensorflow/contrib:contrib_py' depends on deprecated target '//tensorflow/contrib/distributions:distributions_py': TensorFlow Distributions has migrated to TensorFlow Probability (https://github.com/tensorflow/probability). Deprecated copies remaining in tf.contrib.distributions are unmaintained, unsupported, and will be removed by late 2018. You should update all usage of `tf.contrib.distributions` to `tfp.distributions`.
-Analyzing: 5665 targets (511 packages loaded, 25541 targets configured)
-    Fetching http://storage.googleapis.com/...8_07_18.tar.gz; 40,648,704b 528s
-
-Server terminated abruptly (error code: 14, error message: '', log file: '/home/pi/.cache/bazel/_bazel_pi/0b3a56398e8b5b41f08cb1aee4909967/server/jvm.out')
-
-pi@raspberrypi:~/open_src/tensorflow/1.12/ten
-
-
-
-
-
 ------------------- error on bazel build (bazel, 0.19.2, tf r1.12) -------------------
 ---------- try sudo apt-get install libc-ares-dev ....
 
 
-
-
-
-
---------------------------------------------------------------------------------------------
-try adding define=grpc_no_ares=true in bazel command :
-
-bazel build -c opt --copt="-mfpu=neon-vfpv4" --copt="-funsafe-math-optimizations" --copt="-ftree-vectorize" --copt="-fomit-frame-pointer" --define=grpc_no_ares=true  --local_resources 1024,1.0,1.0 --verbose_failures //tensorflow:libtensorflow_cc.so
-
-
-ERROR: /home/pi/open_src/tensorflow/1.12/tensorflow/tensorflow/BUILD:449:1: Linking of rule '//tensorflow:libtensorflow_cc.so' failed (Exit 1) gcc failed: error executing command
-  (cd /home/pi/.cache/bazel/_bazel_pi/0b3a56398e8b5b41f08cb1aee4909967/execroot/org_tensorflow && \
-  exec env - \
-    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games \
-    PWD=/proc/self/cwd \
-    PYTHON_BIN_PATH=/usr/bin/python \
-    PYTHON_LIB_PATH=/usr/local/lib/python2.7/dist-packages \
-    TF_DOWNLOAD_CLANG=0 \
-    TF_NEED_CUDA=0 \
-    TF_NEED_OPENCL_SYCL=0 \
-    TF_NEED_ROCM=0 \
-  /usr/bin/gcc -shared -o bazel-out/arm-opt/bin/tensorflow/libtensorflow_cc.so -z defs -Wl,--version-script tensorflow/tf_version_script.lds '-Wl,-rpath,$ORIGIN/' -Wl,-soname,libtensorflow_cc.so -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread '-fuse-ld=gold' -Wl,-no-as-needed -Wl,-z,relro,-z,now -B/usr/bin -B/usr/bin -pass-exit-codes -Wl,--gc-sections -Wl,@bazel-out/arm-opt/bin/tensorflow/libtensorflow_cc.so-2.params)
-
-Use --sandbox_debug to see verbose messages from the sandbox: gcc failed: error executing command
-  (cd /home/pi/.cache/bazel/_bazel_pi/0b3a56398e8b5b41f08cb1aee4909967/execroot/org_tensorflow && \
-  exec env - \
-    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games \
-    PWD=/proc/self/cwd \
-    PYTHON_BIN_PATH=/usr/bin/python \
-    PYTHON_LIB_PATH=/usr/local/lib/python2.7/dist-packages \
-    TF_DOWNLOAD_CLANG=0 \
-    TF_NEED_CUDA=0 \
-    TF_NEED_OPENCL_SYCL=0 \
-    TF_NEED_ROCM=0 \
-  /usr/bin/gcc -shared -o bazel-out/arm-opt/bin/tensorflow/libtensorflow_cc.so -z defs -Wl,--version-script tensorflow/tf_version_script.lds '-Wl,-rpath,$ORIGIN/' -Wl,-soname,libtensorflow_cc.so -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread -pthread '-fuse-ld=gold' -Wl,-no-as-needed -Wl,-z,relro,-z,now -B/usr/bin -B/usr/bin -pass-exit-codes -Wl,--gc-sections -Wl,@bazel-out/arm-opt/bin/tensorflow/libtensorflow_cc.so-2.params)
-
-Use --sandbox_debug to see verbose messages from the sandbox
-bazel-out/arm-opt/bin/external/aws/_objs/aws/AWSCredentialsProvider.pic.o:AWSCredentialsProvider.cpp:function Aws::Auth::EnvironmentAWSCredentialsProvider::GetAWSCredentials(): error: undefined reference to 'Aws::Environment::GetEnv[abi:cxx11](char const*)'
-bazel-out/arm-opt/bin/external/aws/_objs/aws/AWSCredentialsProvider.pic.o:AWSCredentialsProvider.cpp:function Aws::Auth::EnvironmentAWSCredentialsProvider::GetAWSCredentials(): error: undefined reference to 'Aws::Environment::GetEnv[abi:cxx11](char const*)'
-bazel-out/arm-opt/bin/external/aws/_objs/aws/AWSCredentialsProvider.pic.o:AWSCredentialsProvider.cpp:function Aws::Auth::EnvironmentAWSCredentialsProvider::GetAWSCredentials(): error: undefined reference to 'Aws::Environment::GetEnv[abi:cxx11](char const*)'
-bazel-out/arm-opt/bin/external/aws/_objs/aws/AWSCredentialsProvider.pic.o:AWSCredentialsProvider.cpp:function Aws::Auth::ProfileConfigFileAWSCredentialsProvider::GetConfigProfileFilename[abi:cxx11](): error: undefined reference to 'Aws::FileSystem::GetHomeDirectory[abi:cxx11]()'
-bazel-out/arm-opt/bin/external/aws/_objs/aws/AWSCredentialsProvider.pic.o:AWSCredentialsProvider.cpp:function Aws::Auth::ProfileConfigFileAWSCredentialsProvider::GetCredentialsProfileFilename[abi:cxx11](): error: undefined reference to 'Aws::Environment::GetEnv[abi:cxx11](char const*)'
-bazel-out/arm-opt/bin/external/aws/_objs/aws/AWSCredentialsProvider.pic.o:AWSCredentialsProvider.cpp:function Aws::Auth::ProfileConfigFileAWSCredentialsProvider::GetCredentialsProfileFilename[abi:cxx11](): error: undefined reference to 'Aws::FileSystem::GetHomeDirectory[abi:cxx11]()'
-bazel-out/arm-opt/bin/external/aws/_objs/aws/ClientConfiguration.pic.o:ClientConfiguration.cpp:function Aws::Client::ComputeUserAgentString(): error: undefined reference to 'Aws::OSVersionInfo::ComputeOSVersionString[abi:cxx11]()'
-bazel-out/arm-opt/bin/external/aws/_objs/aws/DateTimeCommon.pic.o:DateTimeCommon.cpp:function Aws::Utils::DateTime::ConvertTimestampStringToTimePoint(char const*, Aws::Utils::DateFormat): error: undefined reference to 'Aws::Time::TimeGM(tm*)'
-bazel-out/arm-opt/bin/external/aws/_objs/aws/DateTimeCommon.pic.o:DateTimeCommon.cpp:function Aws::Utils::DateTime::ConvertTimestampToLocalTimeStruct() const: error: undefined reference to 'Aws::Time::LocalTime(tm*, long)'
-bazel-out/arm-opt/bin/external/aws/_objs/aws/DateTimeCommon.pic.o:DateTimeCommon.cpp:function Aws::Utils::DateTime::ConvertTimestampToGmtStruct() const: error: undefined reference to 'Aws::Time::GMTime(tm*, long)'
-bazel-out/arm-opt/bin/external/aws/_objs/aws/TempFile.pic.o:TempFile.cpp:function .LTHUNK4: error: undefined reference to 'Aws::FileSystem::RemoveFileIfExists(char const*)'
-bazel-out/arm-opt/bin/external/aws/_objs/aws/TempFile.pic.o:TempFile.cpp:function Aws::Utils::ComputeTempFileName(char const*, char const*): error: undefined reference to 'Aws::FileSystem::CreateTempFilePath[abi:cxx11]()'
-bazel-out/arm-opt/bin/tensorflow/core/kernels/_objs/list_kernels/list_kernels.pic.o:list_kernels.cc:function tensorflow::TensorListStack<Eigen::ThreadPoolDevice, tensorflow::bfloat16>::Compute(tensorflow::OpKernelContext*): error: undefined reference to 'void tensorflow::ConcatCPU<tensorflow::bfloat16>(tensorflow::DeviceBase*, std::vector<std::unique_ptr<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix, std::default_delete<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix> >, std::allocator<std::unique_ptr<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix, std::default_delete<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix> > > > const&, tensorflow::TTypes<tensorflow::bfloat16, 2, int>::Matrix*)'
-bazel-out/arm-opt/bin/tensorflow/core/kernels/_objs/list_kernels/list_kernels.pic.o:list_kernels.cc:function tensorflow::TensorListGather<Eigen::ThreadPoolDevice, tensorflow::bfloat16>::Compute(tensorflow::OpKernelContext*): error: undefined reference to 'void tensorflow::ConcatCPU<tensorflow::bfloat16>(tensorflow::DeviceBase*, std::vector<std::unique_ptr<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix, std::default_delete<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix> >, std::allocator<std::unique_ptr<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix, std::default_delete<tensorflow::TTypes<tensorflow::bfloat16, 2, int>::ConstMatrix> > > > const&, tensorflow::TTypes<tensorflow::bfloat16, 2, int>::Matrix*)'
-collect2: error: ld returned 1 exit status
-Target //tensorflow:libtensorflow_cc.so failed to build
-INFO: Elapsed time: 1179.662s, Critical Path: 166.41s, Remote (0.00% of the time): [queue: 0.00%, setup: 0.00%, process: 0.00%]
-INFO: 421 processes: 421 linux-sandbox.
-FAILED: Build did NOT complete successfully
 
 
 --------------------------------------------------------------------------------------------
