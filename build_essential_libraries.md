@@ -50,7 +50,7 @@ Note that bazel supports only few CPU architecture like x86 and ARMv7-A, which m
    you can recheck if you're already under v1.12 release branch using git branch or git log. (Note: see  other available releases from [HERE](https://github.com/tensorflow/tensorflow/releases) )
 
 
-- According to [issue #24372](https://github.com/tensorflow/tensorflow/issues/24372), if you compile tensorflow branch v1.12 right after previous step you will run into [linking error like THIS](build_essential_libraries.md#ERROR1) , so we must apply 2 patches downloaded from [HERE](https://gist.github.com/fyhertz/4cef0b696b37d38964801d3ef21e8ce2).
+- According to [issue #24372](https://github.com/tensorflow/tensorflow/issues/24372), if you compile tensorflow branch v1.12 right after previous step you will run into [linking error like THIS](build_essential_libraries.md######ERROR-1) , so we must apply 2 patches downloaded from [HERE](https://gist.github.com/fyhertz/4cef0b696b37d38964801d3ef21e8ce2).
   download the zip file, extract, then apply
   ```
   git am YOUR_PATCH_NAME.patch
@@ -148,7 +148,7 @@ https://gist.github.com/EKami/9869ae6347f68c592c5b5cd181a3b205
 
 #### Errors you may encounter during the build procedure.
 
-# ERROR1
+###### ERROR 1
 AWS functionality is NOT present in my case, however in the release branch r1.12 users cannot disable AWS support through ./configure , you would end up with linking error like following:
 ```
 ERROR: /home/pi/open_src/tensorflow/1.12/tensorflow/tensorflow/BUILD:449:1: Linking of rule '//tensorflow:libtensorflow_cc.so' failed (Exit 1) gcc failed: error executing command
