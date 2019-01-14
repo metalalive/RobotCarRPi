@@ -278,6 +278,7 @@ int  main (int argc, char ** argv)
     hyparams_int["num_fc_outl"] = 2;
 
     dataset_handler dh (hyparams_int);
+    models nnm {true, hyparams_str, hyparams_float, hyparams_int};
     nnm.initialize();
 
     // init GPIO pins
