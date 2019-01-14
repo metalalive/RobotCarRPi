@@ -17,7 +17,7 @@
 // for each captured frame, there will be corresponding predicted centroid of lane,
 // and generated duty cycles for both sides of DC motors,
 // following parameter defines number of PWM_PERIOD_US time intervals to use for each captured frame.
-#define NUM_PWM_PERIODS_FOR_EACH_FRAME  20
+#define NUM_PWM_PERIODS_FOR_EACH_FRAME  6
 
 
 
@@ -42,7 +42,7 @@ void* polling_cam_frame (void* args)
         // due to our low-quality USB camera performing I/O intensive task, updating frames slowly, 
         // if we want to ensure we capture up-to-date frame in real-time manner that can represent location of the moving car
         // here we only pass one frame to prediction thread for every consecutively captured 4-5 frames 
-        if (cnt % 5 == 0) {
+        if (cnt % 2 == 0) {
             // indicte that we get new frame for prediction thread to access,
             *newframe_avail_flag = true;
         }
@@ -64,14 +64,14 @@ float pre_error_x = 0.0;
 void point2D_2_pwm (std::queue<point2D>& lane_centroid_log, std::vector<int>& duty_cycle_AB )
 {
     // give upper/lower bound of duty cycle for PWM signals of L298N
-    const int MAX_DUTY_CYCLE_PWM = 65;
+    const int MAX_DUTY_CYCLE_PWM = 70;
     const int MIN_DUTY_CYCLE_PWM = 5;
 
     float __dt  =  1.0 * PWM_PERIOD_US * NUM_PWM_PERIODS_FOR_EACH_FRAME;
     float kp_xa =  1.0 * (MAX_DUTY_CYCLE_PWM - MIN_DUTY_CYCLE_PWM) * 0.23 ;
     float kp_xb = -1.0 * (MAX_DUTY_CYCLE_PWM - MIN_DUTY_CYCLE_PWM) * 0.23 ;
-    float kd_xa =  1.0 * (MAX_DUTY_CYCLE_PWM - MIN_DUTY_CYCLE_PWM) * 1000.0 ;
-    float kd_xb = -1.0 * (MAX_DUTY_CYCLE_PWM - MIN_DUTY_CYCLE_PWM) * 1000.0 ;
+    float kd_xa =  1.0 * (MAX_DUTY_CYCLE_PWM - MIN_DUTY_CYCLE_PWM) * 10000.0 ;
+    float kd_xb = -1.0 * (MAX_DUTY_CYCLE_PWM - MIN_DUTY_CYCLE_PWM) * 10000.0 ;
     float kp_y  =        (MAX_DUTY_CYCLE_PWM - MIN_DUTY_CYCLE_PWM) * 0.65 ;
     
     float error_x  =  lane_centroid_log.back().x ;
@@ -259,9 +259,11 @@ int  main (int argc, char ** argv)
     cv::VideoCapture cap;
     init_camera (cap, img_src_path, frame_width, frame_height);
 
-    // cv::Mat must be befind the VideoCapture
+    // cv::Mat must be declared bebind the VideoCapture
     // we haven't figured out that
     cv::Mat frame;
+    // here we assume framebuffer is a FIFO queue of size 5
+    std::queue<cv::Mat> framebuffer;
 
     // data & neural network model handling
     std::unordered_map< std::string, std::string>  hyparams_str;
@@ -301,19 +303,26 @@ int  main (int argc, char ** argv)
     readimg_thread_params.at(2) = (long int) (&pollframe_end_flag);
     readimg_thread_params.at(3) = (long int) (&newframe_avail_flag);
     pthread_create (&readimg_thread_obj, NULL, polling_cam_frame, (void*)&readimg_thread_params);
+    
+    // waiting until the first frame is availalbe
+    while (!newframe_avail_flag){ usleep (1); }
 
     for (idx=0; idx<num_frames ; idx++) {
-        // waiting until new updated frame is availalbe
-        while (!newframe_avail_flag){ usleep (1); }
-
         if (frame.empty()) {
             printf ("[WARN] no frame to be captured currently, terminates the program \r\n");
-            break;
+            continue; 
+        }
+        else {
+            if (framebuffer.size() >= 5) {
+                framebuffer.front().release();
+                framebuffer.pop();
+            }
+            framebuffer.push(frame.clone());
         }
         
         // step 1, feed captured frame to neural network model
-        point2D             curr_pred_lane_centroid ;
-        nnm.predict (frame, curr_pred_lane_centroid, dh);
+        point2D     curr_pred_lane_centroid ;
+        nnm.predict (framebuffer.front(), curr_pred_lane_centroid, dh);
         append_pred_centroid_log (lane_centroid_log, curr_pred_lane_centroid);
         std::cout << "[DBG] currently predicted (x,y) = ("<< lane_centroid_log.back().x 
                   <<","<< lane_centroid_log.back().y <<")" << std::endl;
@@ -325,6 +334,8 @@ int  main (int argc, char ** argv)
         drive_motors (motor_duty_cycle, l298in1,  l298in2,
                       l298in3,  l298in4,  l298enA,  l298enB);
 
+        framebuffer.front().release();
+        framebuffer.pop();
     }
 
     pollframe_end_flag = true;
