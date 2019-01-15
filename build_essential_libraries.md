@@ -115,9 +115,8 @@ Configuration finished
 - According to [this page](https://www.tensorflow.org/install/source), users can run optional command **bazel test** prior to **bazel build <YOUR_OPTIONS>**, however it's also OK to skip **bazel test** then directly run **bazel build**.
 
 
-- then start building (~12 hours)
-  **NOTE**
-    if you build tensorflow from source, be sure to add the options shown at the end of ./configure, to disable the function you don't need.
+- then start building (~12 hours). 
+  Note that if you build tensorflow from source, be sure to add the options shown at the end of ./configure, to disable the function you don't need.
     ```
     bazel build -c opt --copt="-mfpu=neon-vfpv4" \
       --copt="-funsafe-math-optimizations" \
@@ -135,14 +134,18 @@ Configuration finished
     
     Let's break down a little bit to explain some of important options :
 
-    - --config=noaws
-    AWS is NOT enabled in our case, please add this option to disable AWS support & avoid [this linking error](build_essential_libraries.md#ERROR-1), .
-    - --define=grpc_no_ares=true
+    - ```--config=noaws```
+    AWS is NOT enabled in our case, please add this option to disable AWS support & avoid [this linking error](build_essential_libraries.md#ERROR-1).
+    - ```--define=grpc_no_ares=true```
     libc-ares-dev should be included when building from source, in newer version of bazel and tensorflow, you can simply add this option instead of manually download/install the package (e.g. by **apt-get install libc-ares-dev**)
-    - --copt=-DRASPBERRY_PI
+    - ```--copt=-DRASPBERRY_PI```
     if you forgot to add this option, you will end up with [this linking error](build_essential_libraries.md#ERROR-2) at the end.
-    - local_resources 1024,1.0,1.0
+    - ```--local_resources 1024,1.0,1.0```
     1024 means 1024MB memory space (including swap space) for **bazel build**, you can increase the size for your requirement. If you forgot to add this option, compiler will report [out-of-memory error](build_essential_libraries.md#ERROR-3).
+
+#### check the shared library
+after previous step you will see libtensorflow_cc.so in ***<TENSORFLOW_SRC_PATH>/bazel-bin/tensorflow/***
+
 
 
 ### Build correct version of protobuf library (3.6.0)
@@ -158,15 +161,14 @@ Configuration finished
   ```
   git branch
   ```
-  * start building shared library (~1hr), after the step you will see libprotobuf.so.16.0.0 in <YOUR_PROTOBUF_REPO_PATH>/src/.lib
+  * start building shared library (~1hr), after the step you will see libprotobuf.so.16.0.0 in ***<YOUR_PROTOBUF_REPO_PATH>/src/.lib***
   ```
   make
   ```
 
 
 ### build standalone tensorflow application
-then copy following files from your tensorflow source folder to destination application, here we only need header files,
-you can adjust the hierarchy of these files to fir your requirement :
+then copy essential C header files from your tensorflow source folder to destination application, please modify ***TENSORFLOW_SRC_PATH*** and **TARGET_APPS_PATH**  to fit your requirement.
 ```
 mkdir -p TARGET_APPS_PATH/include/bazel-genfiles  \
          TARGET_APPS_PATH/include/third_party     \
@@ -177,8 +179,13 @@ cp -r TENSORFLOW_SRC_PATH/bazel-genfiles/*   TARGET_APPS_PATH/include/bazel-genf
 cp -r TENSORFLOW_SRC_PATH/third_party/*      TARGET_APPS_PATH/include/third_party    
 cp -r TENSORFLOW_SRC_PATH/tensorflow/cc/*    TARGET_APPS_PATH/include/tensorflow/cc  
 cp -r TENSORFLOW_SRC_PATH/tensorflow/core/*  TARGET_APPS_PATH/include/tensorflow/core
-```
 
+// remove other types of files, we only need .h files
+rm -rf | find TARGET_APPS_PATH/include -name "*.cc"
+rm -rf | find TARGET_APPS_PATH/include -name "*.pb"
+rm -rf | find TARGET_APPS_PATH/include -name "*.pbtxt"
+rm -rf | find TARGET_APPS_PATH/include -name "BUILD"
+```
 
 
 write a simple test, verify if the shared library works well:
