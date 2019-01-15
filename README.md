@@ -21,7 +21,7 @@ Here's description about how I build a robotic car using Raspberry PI with car k
 
 
 ### The track
-7-8 meters x 4 meters, black-lane centered track, due to illumination changes and material of the floor, it could be challenging to predict lane line using traditional computer vision approach.
+I decided to build my own track since I couldn't find any existing track in my hometown, it is about 7-8 meters x 4 meters, black-lane centered track, due to illumination changes and material of the floor, it could be challenging to predict lane line using traditional computer vision approach.
 
 
 ### The Car
@@ -30,8 +30,22 @@ Here's description about how I build a robotic car using Raspberry PI with car k
 Here is GPIO pins wiring to L298N controllers
 
 
-### Why Tensorflow C++ ?
-My objective here is to build C++ based neural network application, to do this, Tensorflow C++ seems like the easiest way, a lot of similar examples on the internet descibe that you could train better model with Tensorflow python API, since many exotics / convenient operations have been implemented there (also many optimizers available), however in my case, I found that TF python API only gives 3-4% impprovement (~89%) than TF C++ API (~85%), with the same dataset, even I applied optimizer at the python side and convolutional layer at the both side, I couldn't that much improvement.
 
 #### Image collector
-since I couldn't find any existing track, also makerspace is super far from my hometown, I decided to build my own one. I also wrote python code to collect images of my lane lines with respect to a couple of situations :
+I also wrote a tool using Python for following objective:
+* recording video of my lane lines 
+* label frames from each recorded video, to do so we load each frame in the GUI window, use mouse to click on the expected centroid of the lane line of current frame, then our tool automatically saves the frame to image file, and saves label information ((x,y) in image coordinator) to csv file.
+
+For data collection, we mounted the camera on chassis, manually moved the chassis with respect to a couple of situations :
+* the car perfectly follows the lane line
+* overshoot the lane a little bit
+* overshoot with sharp angle
+
+I ended up with 10 videos, and ~30000 image examples with labels
+
+
+### Why Tensorflow C++ ?
+My objective here is to build C++ based neural network application, Tensorflow C++ API seems like the easiest way to do so. A lot of similar examples on the internet descibe that you can get better resulting/validation result with Tensorflow python API, since many exotic / convenient operations have been implemented there (also many optimizers available), however in my case, I found that TensorFlow python API only improves 3-4% accurancy (~89%) than its C++ API (~85%) with the same dataset, even I applied optimizer at the python side and convolutional layer at the both side, I couldn't get that much improvement. So I still choose Tensorflow C++ API.
+
+
+
