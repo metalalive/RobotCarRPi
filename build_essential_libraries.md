@@ -1,17 +1,17 @@
 # Build essential libraries for RobotCarRPi
-To run the lane detection application on Raspberry Pi (3b+, in my case), since there is no convenient pre-built package for C++ developers on the intenet, we will need to build following libraries from source:
+To run the lane detection application on Raspberry Pi (3b+, in my case), we need to build following libraries from source since there is no convenient pre-built package for C++ developers on the intenet.
 
-#### OpenCV c++ library v4.0.0: 
+### OpenCV c++ library v4.0.0: 
 see installation guide [here](https://www.pyimagesearch.com/2018/09/26/install-opencv-4-on-your-raspberry-pi/), few things should be noted here:
 - it's OK to skip python part since we won't run python code on target Raspberry Pi.
 - in the guide above, swap size was changed to 2GB for opencv installation, please keep it for subsequent bazel/tensorflow compilation, then change CONF_SWAPSIZE back to 100MB after tensorflow shared library is successfully built.
 
-#### Tensorflow C++ library (v1.11 or 1.12): 
+### Tensorflow C++ library (v1.11 or 1.12): 
 In my case I train the neural network model on Ubuntu 14.04 using tensorflow v1.11, save the model then load it on Raspbian 9 (Stretch), run prediction code using tensorflow v1.12.
 
 Here are few general steps to build the tensorflow library which works for C++ application:
 
-##### (1) Build Bazel from source
+#### Build Bazel from source
 We built bazel 0.17.0 for tensorflow v1.11, and built bazel 0.19.2 for tensorflow v1.12.
 Be sure to download release version to avoid building issues, see all available release versions from [HERE](https://github.com/bazelbuild/bazel/releases).
 
@@ -40,7 +40,7 @@ Note that bazel supports only few CPU architecture like x86 and ARMv7-A, which m
    ```
 
 
-###### use compiled Bazel binary to build tensorflow C++ API from source
+#### use compiled Bazel binary to build tensorflow C++ API from source
 - check out tensorflow repository then roll back to previous release version v1.12 (commit ID: a6d8ffa)
    ```
    git clone https://github.com/tensorflow/tensorflow.git
@@ -50,18 +50,18 @@ Note that bazel supports only few CPU architecture like x86 and ARMv7-A, which m
    you can recheck if you're already under v1.12 release branch using git branch or git log. (Note: see  other available releases from [HERE](https://github.com/tensorflow/tensorflow/releases) )
 
 
-- According to [tensorflow issue #24372](https://github.com/tensorflow/tensorflow/issues/24372), if you compile tensorflow branch v1.12 right after previous step you will run into [linking error like THIS](build_essential_libraries.md#ERROR-1) , so we must apply 2 patches downloaded from [HERE](https://gist.github.com/fyhertz/4cef0b696b37d38964801d3ef21e8ce2).
-  download the zip file, extract, then apply
+- According to [tensorflow issue #24372](https://github.com/tensorflow/tensorflow/issues/24372), if you compile tensorflow branch v1.12 right after previous step you will run into [linking error like THIS](build_essential_libraries.md#ERROR-1) , so we must apply 2 patches downloaded from [HERE](https://gist.github.com/fyhertz/4cef0b696b37d38964801d3ef21e8ce2) prior to subsequent steps.
+  download & extract the zip file, then apply
   ```
   git am YOUR_PATCH_NAME.patch
   ```
 
-clean up previous build
+- clean up previously built files
 ```
 bazel clean --expunge
 ```
 
-type ./configure , here is my configuration:
+- run ./configure , here is my configuration:
 ```
 ./configure
 You have bazel 0.19.2- (@non-git) installed.
@@ -112,15 +112,17 @@ Preconfigured Bazel build configs to DISABLE default on features:
 Configuration finished
 ```
 
-According to [this page](https://www.tensorflow.org/install/source), users can run optional command **bazel test** prior to **bazel build <YOUR_OPTIONS>**, it's also OK to directly run **bazel build** without **bazel test**.
+- According to [this page](https://www.tensorflow.org/install/source), users can run optional command **bazel test** prior to **bazel build <YOUR_OPTIONS>**, however it's also OK to skip **bazel test** then directly run **bazel build**.
 
 
-then start building (~12 hours)
-- **NOTE**
-  if you build tensorflow from source, be sure to add the options shown at the end of ./configure, to disable the function you don't need.
-```
-bazel build -c opt --copt="-mfpu=neon-vfpv4" --copt="-funsafe-math-optimizations" \
-      --copt="-ftree-vectorize" --copt="-fomit-frame-pointer" \
+- then start building (~12 hours)
+  **NOTE**
+    if you build tensorflow from source, be sure to add the options shown at the end of ./configure, to disable the function you don't need.
+    ```
+    bazel build -c opt --copt="-mfpu=neon-vfpv4" \
+      --copt="-funsafe-math-optimizations" \
+      --copt="-ftree-vectorize" \
+      --copt="-fomit-frame-pointer" \
       --config=noaws \
       --define=grpc_no_ares=true \
       --config=monolithic \
@@ -129,26 +131,70 @@ bazel build -c opt --copt="-mfpu=neon-vfpv4" --copt="-funsafe-math-optimizations
       --local_resources 1024,1.0,1.0 \
       --verbose_failures \
       //tensorflow:libtensorflow_cc.so  2>&1 | tee ./tf_nativebuild__1.12.log
+    ```
+    
+    Let's break down a little bit to explain some of important options :
+
+    - --config=noaws
+    AWS is NOT enabled in our case, please add this option to disable AWS support & avoid [this linking error](build_essential_libraries.md#ERROR-1), .
+    - --define=grpc_no_ares=true
+    libc-ares-dev should be included when building from source, in newer version of bazel and tensorflow, you can simply add this option instead of manually download/install the package (e.g. by **apt-get install libc-ares-dev**)
+    - --copt=-DRASPBERRY_PI
+    if you forgot to add this option, you will end up with [this linking error](build_essential_libraries.md#ERROR-2) at the end.
+    - local_resources 1024,1.0,1.0
+    1024 means 1024MB memory space (including swap space) for **bazel build**, you can increase the size for your requirement. If you forgot to add this option, compiler will report [out-of-memory error](build_essential_libraries.md#ERROR-3).
+
+
+### Build correct version of protobuf library (3.6.0)
+* checkout the repository
+  ```
+  git clone https://github.com/protocolbuffers/protobuf.git
+  ```
+  * check out released branch v3.6.0 (see [all available releases](https://github.com/protocolbuffers/protobuf/releases))
+  ```
+  git checkout v3.6.0
+  ```
+  * you can recheck to see if your local repository is in correct release
+  ```
+  git branch
+  ```
+  * start building shared library (~1hr), after the step you will see libprotobuf.so.16.0.0 in <YOUR_PROTOBUF_REPO_PATH>/src/.lib
+  ```
+  make
+  ```
+
+
+### build standalone tensorflow application
+then copy following files from your tensorflow source folder to destination application, here we only need header files,
+you can adjust the hierarchy of these files to fir your requirement :
 ```
-Let's break down the options a little bit:
+mkdir -p TARGET_APPS_PATH/include/bazel-genfiles  \
+         TARGET_APPS_PATH/include/third_party     \
+         TARGET_APPS_PATH/include/tensorflow/cc   \
+         TARGET_APPS_PATH/include/tensorflow/core
 
-- --config=noaws
-  According to [this linking error](build_essential_libraries.md#ERROR-1), please add this option to disable AWS support.
-- --define=grpc_no_ares=true
-  libc-ares-dev should be included when building from source, in newer version of bazel and tensorflow, you can simply add this option instead of manually download/install the package (e.g. by **apt-get install libc-ares-dev**)
-- --copt=-DRASPBERRY_PI
-  if you forgot to add this option, you will end up with [this linking error](build_essential_libraries.md#ERROR-2) at the end.
-- local_resources 1024,1.0,1.0
-  if you forgot to add this option, compiler will complain out-of-memory issues and report [this error](build_essential_libraries.md#ERROR-3).
-
-###### Build correct version of protobuf library (3.6.0)
+cp -r TENSORFLOW_SRC_PATH/bazel-genfiles/*   TARGET_APPS_PATH/include/bazel-genfiles 
+cp -r TENSORFLOW_SRC_PATH/third_party/*      TARGET_APPS_PATH/include/third_party    
+cp -r TENSORFLOW_SRC_PATH/tensorflow/cc/*    TARGET_APPS_PATH/include/tensorflow/cc  
+cp -r TENSORFLOW_SRC_PATH/tensorflow/core/*  TARGET_APPS_PATH/include/tensorflow/core
+```
 
 
-##### reference
+
+write a simple test, verify if the shared library works well:
+```
+```
+
+
+
+
+#### reference
 https://gist.github.com/EKami/9869ae6347f68c592c5b5cd181a3b205
 
 
-#### Errors you may encounter during the build procedure.
+
+-------------------------------------------------------------------------
+### Errors you may encounter during the build procedure.
 
 ###### ERROR 1
 AWS support shouldn't be present in my case, however in the release branch r1.12 users cannot disable AWS support through ./configure , you would end up with linking error like following:
@@ -188,9 +234,8 @@ collect2: error: ld returned 1 exit status
 
 
 ###### ERROR 2
-add define marco RASPBERRY_PI , referenced in tensorflow/core/platform/platform.h
-https://github.com/tensorflow/tensorflow/issues/17790
-https://github.com/tensorflow/serving/issues/852
+Accroding to [the issue](https://github.com/tensorflow/tensorflow/issues/17790#issuecomment-392185433) and [this issue](https://github.com/tensorflow/serving/issues/852), you will get a following linking error without the define marco RASPBERRY_PI, which is referenced in tensorflow/core/platform/platform.h
+
 ```
 ERROR: /home/pi/open_src/tensorflow/1.12/tensorflow/tensorflow/BUILD:477:1: Linking of rule '//tensorflow:libtensorflow_cc.so' failed (Exit 1): gcc failed: error executing command
   (cd /home/pi/.cache/bazel/_bazel_pi/0b3a56398e8b5b41f08cb1aee4909967/execroot/org_tensorflow && \
@@ -214,6 +259,7 @@ FAILED: Build did NOT complete successfully
 ```
 
 ###### ERROR 3
+Failed to allocate memory when compiling source, chances are the memory limit is not configured in **bazel build**
 ```
 ERROR: /home/pi/open_src/tensorflow/1.12/tensorflow-master/tensorflow/core/kernels/BUILD:2919:1: C++ compilation of rule '//tensorflow/core/kernels:matrix_square_root_op' failed (Exit 1): gcc failed: error executing command
   (cd /home/pi/.cache/bazel/_bazel_pi/fd3a3edf6b94d1539919e6f15e50731b/execroot/org_tensorflow && \
@@ -232,44 +278,6 @@ Target //tensorflow:libtensorflow_cc.so failed to build
 INFO: Elapsed time: 5725.553s, Critical Path: 5711.34s, Remote (0.00% of the time): [queue: 0.00%, setup: 0.00%, process: 0.00%]
 INFO: 182 processes: 182 local.
 FAILED: Build did NOT complete successfully
-```
-
-
-
-
-
-
-... work OK, build .so successfully
-build time : ~11 hrs
-
-
-
--------------------------------------------------------------------------
-
-
-when building from source, be sure to add the options suggested at the end of ./configure
-```
-bazel build -c opt --copt="-mfpu=neon-vfpv4" --copt="-funsafe-math-optimizations" --copt="-ftree-vectorize" --copt="-fomit-frame-pointer" --config=noaws --define=grpc_no_ares=true --config=monolithic --copt=-DRASPBERRY_PI --config=nogcp --config=nohdfs --config=noignite --config=nokafka  --local_resources 1024,1.0,1.0 --verbose_failures //tensorflow:libtensorflow_cc.so  2>&1 | tee ./tf_nativebuild__1.12_v2.log
-```
-
-then copy following files from your tensorflow source folder to destination application, here we only need header files,
-you can adjust the hierarchy of these files to fir your requirement :
-```
-mkdir -p TARGET_APPS_PATH/include/bazel-genfiles  \
-         TARGET_APPS_PATH/include/third_party     \
-         TARGET_APPS_PATH/include/tensorflow/cc   \
-         TARGET_APPS_PATH/include/tensorflow/core
-
-cp -r TENSORFLOW_SRC_PATH/bazel-genfiles/*   TARGET_APPS_PATH/include/bazel-genfiles 
-cp -r TENSORFLOW_SRC_PATH/third_party/*      TARGET_APPS_PATH/include/third_party    
-cp -r TENSORFLOW_SRC_PATH/tensorflow/cc/*    TARGET_APPS_PATH/include/tensorflow/cc  
-cp -r TENSORFLOW_SRC_PATH/tensorflow/core/*  TARGET_APPS_PATH/include/tensorflow/core
-```
-
-
-
-write a simple test, verify if the shared library works well:
-```
 ```
 
 
