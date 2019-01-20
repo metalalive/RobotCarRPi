@@ -21,29 +21,37 @@ Here's description about how I build a robotic car using Raspberry PI with car k
 
 
 ### The track
-I decided to build my own track since I couldn't find any existing track in my hometown, it is about 7-8 meters x 4 meters, black-lane centered track, due to illumination changes and material of the floor, it could be challenging to predict lane line using traditional computer vision approach.
+I decided to build my own track since I couldn't find any existing track in my hometown, it is about 7-8 meters x 4 meters, black lane line with curvatures, due to illumination changes in different time of a day and material of the floor, it could be challenging to accurately predict lane line using traditional computer vision approach.
 
 <img src="track1.jpg" width="383" height="474" class="center" />
 
-### The Car
+### Hardware connection
 
 <img src="robotCarPI.jpg" width="416" height="312" class="center" />
 
-Here is GPIO pins wiring to L298N controllers
+The table below shows how I wired L298N controller to my Raspberry PI 3B+
+ 
+| L298N | RPi 3B+ |
+|-------|---------|
+| IN1   | GPIO 17 |
+| IN2   | GPIO 27 |
+| IN3   | GPIO 22 |
+| IN4   | GPIO 23 |
+| ENA   | GPIO 3  |
+| ENB   | GPIO 4  |
 
 
 
 #### Image collector
-I also wrote a tool in Python for following objectives:
+I wrote a tool in Python for data collection, Here's what it does:
 * recording video of my lane lines 
 * labeling frames from recorded videos.
+* augmenting the image examples with labels.
 
-For data collection, we mounted the camera on chassis, manually moved the chassis with respect to few driving situations :
+For recording video, we mounted the camera on chassis, manually moved the car with respect to few driving situations :
 * the car perfectly follows the lane line
-* overshoot the lane a little bit
-* overshoot with sharp angle
-
-I ended up with 10 videos, and ~30000 image examples with labels.
+* the car overshoot the lane line a little bit
+* the car overshoot the lane line with sharp angle
 
 To create labeled dataset, we make use of open CV to load each frame from recorded videos to the GUI window, use mouse to click on the expected centroid of the lane line of each frame, press any key on keyboard to switch to next frame, then our tool will automatically :
 * resize the frame to smaller 160 x 120 frame
@@ -51,6 +59,7 @@ To create labeled dataset, we make use of open CV to load each frame from record
 * normalize the point ((x,y) in image coordinator) we clicked for the frame, the normalized (x,y) value will be in the range of -1 to 1.
 * add label information (normalized point & the path of the image ) to csv file.
 
+I ended up with 10 videos, and ~15000 image examples with labels.
 
 
 ### Why Tensorflow C++ ?
