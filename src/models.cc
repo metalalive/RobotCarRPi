@@ -21,7 +21,6 @@ models::models( bool restore_mode ,
 
 models::~models()
 {
-    ////for (tensorflow::ClientSession *sess : sessions) {
     for (tensorflow::Session *sess : sessions) {
         delete sess;
     }
@@ -156,7 +155,6 @@ void models::build ()
                                           )
                                 );
 
-    //// cost_fn = sum_square_error ;
     tensorflow::Output cost_fn = tensorflow::ops::Add (root.WithOpName("cost_fn"), sum_square_error,  regularization );
 
     // ----- for gradient descent -----
@@ -509,7 +507,6 @@ int models::save_to_file()
             train_param_rawdata = reinterpret_cast<const float*>(t.tensor_data().data());
             tensorflow::TensorShape shape({t.dim_size(0), t.dim_size(1)});
             chkptrname = std::string("chkptr") + std::to_string(jdx);
-            ////std::cout << "[DBG] save chkptr to file: "<< chkptrname << std::endl;
             TF_CHECK_OK(
                 writer.Add<float>(chkptrname, shape, tslice, train_param_rawdata)
             );

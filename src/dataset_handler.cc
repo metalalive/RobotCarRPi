@@ -78,10 +78,7 @@ std::vector< std::vector<laneinfo> > dataset_handler::split_shuffle (std::string
         num_samples[2] = labels_of_curr_file.size()*1/100-1;
         // start splitting each label files to 3 sudsets :
         // training / cross-validation / test set
-        //// std::cout << "      before shuffling, first item is "<< labels_of_curr_file[0].imgpath << std::endl;
         std::random_shuffle(labels_of_curr_file.begin(), labels_of_curr_file.end());
-        //// std::cout << "      after shuffling,  first item is "<< labels_of_curr_file[0].imgpath <<
-        ////           ", ("<< labels_of_curr_file[0].x[0] << "," << labels_of_curr_file[0].y[0] <<")" << std::endl;
 
         // assign part of the labels to each of output
         for (jdx=0; jdx<num_samples.size(); jdx++) {
@@ -120,8 +117,6 @@ void dataset_handler::load_labeled_examples(
         flatten_labels.push_back (it->label.x);
         flatten_labels.push_back (it->label.y);
     }
-    //// std::cout << "[DBG][load_labeled_examples] sliced_samples.size() : " << sliced_samples.size()  << std::endl;
-    //// std::cout << "[DBG] now data is ready to copy" << ", flatten_pxl.size() : "<< flatten_pxl.size()  << std::endl;
     std::copy_n( flatten_pxl.begin(),    flatten_pxl.size(),     sample_data.flat<float>().data() );
     std::copy_n( flatten_labels.begin(), flatten_labels.size(),   label_data.flat<float>().data() );
 }
@@ -137,9 +132,7 @@ void  dataset_handler::load_unlabeled_example (cv::Mat& img_in,   tensorflow::Te
     int norm_img_size = 0;
 
     preprocess_one_image (img_in, norm_img);
-    norm_img_size = norm_img.elemSize() * norm_img.total() / sizeof(float);
-    ////flatten_pxl.insert ( flatten_pxl.end(), (float*)norm_img.datastart, (float*)norm_img.dataend );
-    ////std::copy_n( flatten_pxl.begin(),    flatten_pxl.size(),     sample_data.flat<float>().data() );
+    norm_img_size =  norm_img.total() * norm_img.elemSize() / sizeof(float);
     std::copy_n( (float*)norm_img.datastart, norm_img_size,  sample_data.flat<float>().data() );
     norm_img.release ();
 }

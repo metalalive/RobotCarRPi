@@ -72,6 +72,12 @@ CC_OPTIONS = -Wall  -nostartfiles -c -g  -std=c++11 -D_GLIBCXX_USE_CXX11_ABI=1 -
 	$(LD)  $^ -o $@  $(LINK_LIB)
 
 
+run:
+	@sudo modprobe bcm
+	@./main.out  /dev/video0  ../models/models.pbtxt  \
+           ../models/trained_param_checkpoints__acc_87p.bin  470
+
+
 copy_tf_headers: $(SRC_FOLDER)
 	@rm -rf $(DST_FOLDER)
 	@mkdir -p $(DST_FOLDER)/tensorflow
