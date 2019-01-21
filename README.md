@@ -65,7 +65,13 @@ To create labeled dataset, my tool extracts each frame from recorded videos to t
 * normalize the point (the (x,y) in image coordinate system we just specified for the frame), the normalized (x,y) value will be in the range \[-1, 1\].
 * append label information (normalized point & the path of the saved image) to csv file.
 
-I ended up with 10 videos, ~15000 image examples with labels before augmentation, and ~30000 examples after augmentation.
+|![](image/dataset/1/909.jpg)|![](image/dataset/1/809.jpg)|![](image/dataset/1/709.jpg)|![](image/dataset/1/609.jpg)|
+|----------------------------|----------------------------|----------------------------|----------------------------|
+|![](image/dataset/1/509.jpg)|![](image/dataset/1/409.jpg)|![](image/dataset/1/309.jpg)|![](image/dataset/1/209.jpg)|
+|![](image/dataset/1/1709.jpg)|![](image/dataset/1/1609.jpg)|![](image/dataset/1/1509.jpg)|![](image/dataset/1/1409.jpg)|
+|![](image/dataset/1/1309.jpg)|![](image/dataset/1/1209.jpg)|![](image/dataset/1/1109.jpg)|![](image/dataset/1/109.jpg)|
+
+The table above shows the downsized images which will be fed into our neural network model. I ended up with 10 videos, ~15000 image examples with labels before augmentation, and ~30000 examples after augmentation.
 
 
 
@@ -74,18 +80,21 @@ My objective here is to build C++ based neural network application, Tensorflow C
 
 
 ### Building model & Hyperparameters
-In the beginning I tried only 2 fully-connected hidden layers, after some experiment I found following hyperparameters working together just fine :
+In the beginning I tried only 2 fully-connected hidden layers, after some experiment I found following hyperparameters working  well :
 * input layer size = 1800
   * which means I'll crop a input RGB image from 160 x 120 to 160 x 60, then further downsize the cropped image to 40 x 15, the downsized image has 40 x 15 x 3 = 1800 features to fit in the input layer of the model.
 * 1st hidden layer size = 32
 * 2nd hidden layer size = 8
 * output layer size = 2
-  * I expect the model will output a point (x,y) on the image to represent the predicted centroid of lane line, in the range \[-1, 1\].
-* Tanh as activation function (excluding the output layer)
-  * we want it to be linear output ....
+  * I expect the model will output a pair of (x,y) value, which represents the predicted centroid of lane line in the range \[-1, 1\].
+* Tanh as activation function
+  * excluding the output layer, since we are going to solve linear regression problem
+* initial random value of parameter matrices, ranges from 0 to 0.0011
+* learning rate = 0.00004
+* lambda for regularization = 0.000001
   
 
-I've also tried few different combinations in order to build a neural network model :
+I've also tried few different combinations in the neural network model :
 * only 2 fully-connected layers 
 * 1 convolutional layers + 2 fully-connected layers
 * 2 convolutional layers + 2 fully-connected layers
@@ -97,8 +106,12 @@ The 3 options listed above provide very similar training error, I apply the firs
 
 
 ### train the model
+Each time we trained the model , we found every training loss can vary from previous training, e.g. previous training loss was 0.06 while current training loss can be 0.110 , it turns out that could be skew class issue, every time we randomly choose image examples from dataset as my training set, sometimes we can get a training set (again, randomly selected from the dataset) covering most of lane line conditions, while sometimes we get a training set including only a few types of lane condition (e.g. the lane is always in the middle in our training set).
 
-### save the mode1 to protobuf text file
+To avoid such issue, we tried clustering the dataset by k-mean cluster algorithm (with k = 60)
+
+
+### save the model to protobuf text file
 
 ### save the parameter matrices to checkpoint files
 
