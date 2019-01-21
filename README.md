@@ -2,6 +2,10 @@
 
 Here's description about how I build a robotic car using Raspberry PI with car kits and camera, I'll also describe about how I program the car, build/train/validate my neural network for image processing using **Tensorflow C++ API**, I also managed to get 85% accurancy when predicting images of test sets using the trained neural network model.
 
+click following image to see result.
+[(image/youtube_video_lane_detection_1.png)](https://www.youtube.com/watch?v=pSG8lJDgizE)
+
+
 ### Hardware Components
 * Raspberry PI 3B+
 * Pi camera Rev 1.3
@@ -23,11 +27,12 @@ please read [How to build shared libraries](build_essential_libraries.md) for de
 ### The track
 I decided to build my own track since I couldn't find any existing track in my hometown, it is about 6-7 meters x 4 meters, black lane line with curvatures, due to illumination changes in different time of a day and material of the floor, it could be challenging to accurately predict lane line using traditional computer vision approach.
 
-<img src="track1.jpg" width="383" height="474" class="center" />
+<img src="./image/track1.jpg" width="383" height="474" class="center" />
+
+<img src="./image/robotCarPI_1.jpg" width="416" height="312" class="center" />
+
 
 ### Hardware connection
-
-<img src="robotCarPI.jpg" width="416" height="312" class="center" />
 
 The table below shows how I wired L298N Controller to my Raspberry PI 3B+
  
@@ -99,6 +104,8 @@ The 3 options listed above provide very similar training error, I apply the firs
 
 ### load the trained model on Raspberry Pi
 
+
+[(image/youtube_video_lane_detection_2.png)](https://www.youtube.com/watch?v=RRzkYEv9kbw)
 
 #### There are still something to improve
 
