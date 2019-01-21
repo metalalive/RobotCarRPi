@@ -2,8 +2,8 @@
 
 Here's description about how I build a robotic car using Raspberry PI with car kits and camera, I'll also describe about how I program the car, build/train/validate my neural network for image processing using **Tensorflow C++ API**, I also managed to get 85% accurancy when predicting images of test sets using the trained neural network model.
 
-click following image to see result.
-[(image/youtube_video_lane_detection_1.png)](https://www.youtube.com/watch?v=pSG8lJDgizE)
+
+[![click following image to see result](image/youtube_video_lane_detection_1.png)](https://www.youtube.com/watch?v=pSG8lJDgizE)
 
 
 ### Hardware Components
@@ -105,7 +105,7 @@ The 3 options listed above provide very similar training error, I apply the firs
 ### load the trained model on Raspberry Pi
 
 
-[(image/youtube_video_lane_detection_2.png)](https://www.youtube.com/watch?v=RRzkYEv9kbw)
+[![click this picture to see result](image/youtube_video_lane_detection_2.png)](https://www.youtube.com/watch?v=RRzkYEv9kbw)
 
 #### There are still something to improve
 
