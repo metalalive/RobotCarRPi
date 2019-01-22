@@ -1,6 +1,6 @@
 # Raspberry PI X Robotic car X Tensorflow
 
-Here's description about how I build a robotic car using Raspberry PI with chassis kits and camera, also how I build / train / validate my neural network model using **Tensorflow C++ API**, I also managed to get 85% accurancy when predicting images from test sets and frames from camera using the trained neural network model.
+Here's description about how I build a robotic car using Raspberry PI with chassis kits and camera, also how I build / train / validate my neural network model using **Tensorflow C++ API**, Based on this article, I managed to get 85% accurancy when predicting images from test sets, and trained neural network model can predict centroid of lane line from the captured frames of camera (click the picture below to see the video).
 
 
 [![click following image to see result](image/youtube_video_lane_detection_1.png)](https://www.youtube.com/watch?v=pSG8lJDgizE)
@@ -103,12 +103,14 @@ For hidden layer, I also tried few different combinations in the model :
 
 Due to limited resource on Raspberry PI, I cannot run that complicated neural network like YOLO or ResNet then end up eating up all of CPU/memory resource, it seems that the types of network layer we can try are limited.
 
-The 3 options listed above provide very similar training error, I apply the first one to my neural network model.
+The 3 options listed above provide very similar training errors, I apply the first one to my neural network model.
 
 
 
 ### Training the model
-In the beginning we trained the model a few times, we found the training losses can vary widely, e.g. we got previous training loss = 0.06 while current training loss = 0.110 , it turns out the reason could be skewed training set, since every time we randomly chose image examples from the entire dataset for training process, sometimes we were lucky to get a training set covering almost all of lane-line conditions, while sometimes we got a training set covering only a few types of lane condition (e.g. the lanes are always in the middle in our training set).
+I trained the model a few times on a dual-core intel i5 laptop, each time it took about 3 hrs.
+
+In the beginning, we found the training losses can vary widely, e.g. we got previous training loss = 0.06 while current training loss = 0.110 , it turns out the reason could be skewed training set, since every time we randomly chose image examples from the entire dataset for training process, sometimes we were lucky to get a training set covering almost all kinds of lane-line conditions, while sometimes we got a training set covering only a few types of lane condition (e.g. the lanes are always in the middle in our training set).
 
 To avoid inbalanced training/test set , we tried grouping the dataset by k-mean cluster algorithm (with k = 60), then check if we need to add more images of specific type. (e.g. lack of image example with sharp left curvature ...... etc) 
 
@@ -116,7 +118,7 @@ After this procedure the training process works better, finally we managed to ge
 
 
 ### Training / Testing Loss, and Accurancy
-Here is how I define training / testing loss, for each image example of training set, we have :
+Here is how I determine training / testing loss, for each image example of **training set**, we have :
 
 | variable name | description |
 |---------------|-------------|
@@ -126,17 +128,53 @@ Here is how I define training / testing loss, for each image example of training
 | y_true | normalized value y in the label (ground truth) |
 ```
 example_loss = sqrt( (x_pred - x_true)^2 + (y_pred - y_true)^2 );
-total_loss = sum(example_loss) + lambda * sum( train_parameters^2 );
+total_loss = sum(example_loss) + lambda * sum( all_train_parameters ^ 2 );
 ```
+
+Here is how I determine prediction accurancy, for each image example of **testing set** : 
+```
+accurate_pred = 
+                 1, means the prediction is considered accurate, 
+                    if abs(x_pred - x_true) < 0.25  and  abs(y_pred - y_true) < 0.37
+                 0, otherwise
+
+accurancy = sum(accurate_pred) / num_of_examples_testset
+```
+
+I managed to get 85% ~ 87% accurancy when predicting images from testing set using the trained neural network model
+
 
 
 ### save the model to protobuf text file
+We can make use of Tensorflow C++ function ```tensorflow::WriteTextProto()``` to save the graph to protobuf-format text/binary file. To invoke this function you must prepare few arguments :
+* ``` tensorflow::Env ``` object, created by static function ```tensorflow::Env::Default()```
+* string path to the protobuf file, it can be ```std::string```
+* get the object ```tensorflow::GraphDef```  from ```tensorflow::Scope::ToGraphDef()``` after you defined all the operations in the object ```tensorflow::Scope``` 
+
 
 ### save the parameter matrices to checkpoint files
+A checkpoint in tensorflow framework is like a trained parameter matrix, ```tensorflow::WriteTextProto()``` will NOT save trained parameters to protobuf file, fortunately we have ```tensorflow::checkpoint::TensorSliceWriter``` instead, to do so you must do the following :
+* get currently trained parameters by performing this:
+  ```
+  tensorflow::Session::Run({}, {"name_of_param_mtx"}, {}, &output_tensor)
+  ```
+  while output_tensor is a ```std::vector``` of ```tensorflow::Tensor``` with 6 elements (Tensors).
+* copy raw data from each of ```tensorflow::Tensor``` to ```tensorflow::checkpoint::TensorSliceWriter```, you must prepare:
+  * base address of the parameter raw data by calling ```tensorflow::Tensor.tensor_data().data()```
+  * shape of each ```tensorflow::Tensor``` , by calling ```tensorflow::Tensor::dim_size(NUM_DIMENSION)```. For eaxmple a 7x17 2D parameter matrix, NUM_DIMENSION can be 0 and 1, where ```tensorflow::Tensor::dim_size(0)``` is 7 and ```tensorflow::Tensor::dim_size(1)``` is 17.
+  * name of this checkpoint, naming must be unique from other checkpoints
+  * create an object ```tensorflow::TensorSlice``` by calling ```tensorflow::TensorSlice::ParseOrDie("-:-")```, it seems that the only argument of ```tensorflow::TensorSlice::ParseOrDie``` will be internally analyzed e.g. ```-:-``` means taking all items of a matrix. if users only want part of trained parameter matrix e.g. to only take 2nd column of all rows, then the string argument would be likely ```-:2``` , I haven't figured out such advanced uasge of ```tensorflow::TensorSlice::ParseOrDie```.
 
-### load the trained model on Raspberry Pi
+
+### load the trained model on Raspberry PI
+To load tensorflow graph model & corresponding trained parameters, you have ```tensorflow::ReadTextProto``` and ```tensorflow::checkpoint::TensorSliceReader```
+* the usage of ```tensorflow::ReadTextProto``` is quite similar to ```tensorflow::WriteTextProto()```, please check out [models::restore_from_file()](src/models.cc#L534) in this repository.
+* To load trained parameters to the model, using ```tensorflow::checkpoint::TensorSliceReader``` , you need to :
+  * before you train the model, make sure to create ```tensorflow::ops::Placeholder``` as the entry to parameter matrices inside neural network model, then create ```tensorflow::ops::Assign``` to define the operation that assigns the value from ```tensorflow::ops::Placeholder``` to the parameter matrices in ```tensorflow::ops::Variable``` of the neural network model.
+
 
 ### PID control
+
 
 
 
