@@ -1,6 +1,6 @@
 # Raspberry PI X Robotic car X Tensorflow
 
-Here's description about how I build a robotic car using Raspberry PI with car kits and camera, I'll also describe about how I program the car, build/train/validate my neural network for image processing using **Tensorflow C++ API**, I also managed to get 85% accurancy when predicting images of test sets using the trained neural network model.
+Here's description about how I build a robotic car using Raspberry PI with chassis kits and camera, also how I build / train / validate my neural network model using **Tensorflow C++ API**, I also managed to get 85% accurancy when predicting images from test sets and frames from camera using the trained neural network model.
 
 
 [![click following image to see result](image/youtube_video_lane_detection_1.png)](https://www.youtube.com/watch?v=pSG8lJDgizE)
@@ -80,35 +80,54 @@ My objective here is to build C++ based neural network application, Tensorflow C
 
 
 ### Building model & Hyperparameters
-In the beginning I tried only 2 fully-connected hidden layers, after some experiment I found following hyperparameters working  well :
+In the beginning I applied only 2 fully-connected to the hidden layers of the model, after some experiment I found following hyperparameters working together just fine :
 * input layer size = 1800
-  * which means I'll crop a input RGB image from 160 x 120 to 160 x 60, then further downsize the cropped image to 40 x 15, the downsized image has 40 x 15 x 3 = 1800 features to fit in the input layer of the model.
+  * which means I'll crop a input RGB image from 160 x 120 to 160 x 60, then further downsize the cropped image to 40 x 15, the downsized image has 40 x 15 x 3 = 1800 features to fit into the input layer of the model.
 * 1st hidden layer size = 32
 * 2nd hidden layer size = 8
 * output layer size = 2
-  * I expect the model will output a pair of (x,y) value, which represents the predicted centroid of lane line in the range \[-1, 1\].
+  * the model will output a pair of (x,y) value, which represents the normalized (x,y) number in the range \[-1, 1\], also means predicted centroid of lane line.
+  * note that I treat lane detection as a linear regression problem, NOT like logistic regression & multi-class classification, therefore the output of the model will be linear value (in the range \[-1, 1\]), NOT probability of different positions of centoid of the lane line.
 * Tanh as activation function
-  * excluding the output layer, since we are going to solve linear regression problem
+  * all layers, excluding the output layer, include the activation function, since we are addressing linear regression problem
 * initial random value of parameter matrices, ranges from 0 to 0.0011
 * learning rate = 0.00004
 * lambda for regularization = 0.000001
+* 2/3 of the dataset will be used for training, 1/3 of them will be for testing.
   
-
-I've also tried few different combinations in the neural network model :
+ 
+For hidden layer, I also tried few different combinations in the model :
 * only 2 fully-connected layers 
-* 1 convolutional layers + 2 fully-connected layers
+* 1 convolutional layer  + 2 fully-connected layers
 * 2 convolutional layers + 2 fully-connected layers
 
-Due to limited resource on Raspberry PI I could not run that complicated structure of neural network like YOLO or ResNet then end up eating up all of CPU/memory resource, it is like the types of layer we can try are limited.
+Due to limited resource on Raspberry PI, I cannot run that complicated neural network like YOLO or ResNet then end up eating up all of CPU/memory resource, it seems that the types of network layer we can try are limited.
 
-The 3 options listed above provide very similar training error, I apply the first one to my neural network model
+The 3 options listed above provide very similar training error, I apply the first one to my neural network model.
 
 
 
-### train the model
-Each time we trained the model , we found every training loss can vary from previous training, e.g. previous training loss was 0.06 while current training loss can be 0.110 , it turns out that could be skew class issue, every time we randomly choose image examples from dataset as my training set, sometimes we can get a training set (again, randomly selected from the dataset) covering most of lane line conditions, while sometimes we get a training set including only a few types of lane condition (e.g. the lane is always in the middle in our training set).
+### Training the model
+In the beginning we trained the model a few times, we found the training losses can vary widely, e.g. we got previous training loss = 0.06 while current training loss = 0.110 , it turns out the reason could be skewed training set, since every time we randomly chose image examples from the entire dataset for training process, sometimes we were lucky to get a training set covering almost all of lane-line conditions, while sometimes we got a training set covering only a few types of lane condition (e.g. the lanes are always in the middle in our training set).
 
-To avoid such issue, we tried clustering the dataset by k-mean cluster algorithm (with k = 60)
+To avoid inbalanced training/test set , we tried grouping the dataset by k-mean cluster algorithm (with k = 60), then check if we need to add more images of specific type. (e.g. lack of image example with sharp left curvature ...... etc) 
+
+After this procedure the training process works better, finally we managed to get trainning loss between 0.06 ~ 0.08
+
+
+### Training / Testing Loss, and Accurancy
+Here is how I define training / testing loss, for each image example of training set, we have :
+
+| variable name | description |
+|---------------|-------------|
+| x_pred | normalized value x predicted by the model |
+| y_pred | normalized value y predicted by the model |
+| x_true | normalized value x in the label (ground truth) |
+| y_true | normalized value y in the label (ground truth) |
+```
+example_loss = sqrt( (x_pred - x_true)^2 + (y_pred - y_true)^2 );
+total_loss = sum(example_loss) + lambda * sum( train_parameters^2 );
+```
 
 
 ### save the model to protobuf text file
@@ -116,6 +135,9 @@ To avoid such issue, we tried clustering the dataset by k-mean cluster algorithm
 ### save the parameter matrices to checkpoint files
 
 ### load the trained model on Raspberry Pi
+
+### PID control
+
 
 
 [![click this picture to see result](image/youtube_video_lane_detection_2.png)](https://www.youtube.com/watch?v=RRzkYEv9kbw)
