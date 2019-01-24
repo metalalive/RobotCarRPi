@@ -76,7 +76,7 @@ The table above shows the downsized images which will be fed into our neural net
 
 
 ### Why Tensorflow C++ ?
-My objective here is to build C++ based neural network application, Tensorflow C++ API seems like the easiest way to do so. A lot of similar examples on the internet descibe that you can get better training/testing result with Tensorflow python API, since many exotic / convenient operations have been implemented there (also many optimizers available), however in my case, I found that TensorFlow python API only improves 3-4% accurancy (~89%) than its C++ API (~85%) with the same dataset, even I applied optimizer at the python side and convolutional layer at the both side I still couldn't get that much improvement. So I choose Tensorflow C++ API.
+My objective here is to build C++ based neural network application, Tensorflow C++ API seems like the easiest way to do so. A lot of similar examples on the internet descibe that you can get better training/testing result with Tensorflow python API, since many exotic / convenient operations have been implemented there (also many optimizers available), however in my case, I found that TensorFlow python API only improves 3-4% accurancy (~89%) than its C++ API (~85%, see [how I define testing accurancy](README.md#training--testing-loss-and-accurancy)) with the same dataset, I couldn't get significant improvement even I applied optimizer at the python side and convolutional layer at the both side. So I still choose Tensorflow C++ API.
 
 
 ### Building model & Hyperparameters
@@ -187,26 +187,67 @@ To load tensorflow graph model & corresponding trained parameters, you have ```t
 
 
 ### Propotional-Derivative Control
-Once I got **predicted (x,y) pair of value** from the neural network model, then I apply classic [Propotional-Derivative Control](https://en.wikipedia.org/wiki/PID_controller) to converting it to **duty cycle of PWM signal of the 4 DC motors**.
-The (x,y) output value is in the range \[-1, 1\] , the speed is regulated by 2 factors :
-* predicted y value, the smaller it is, the faster the car will move (it means the car can see the next centroid of the lane line far from its current position)
-* predicted x value, if x is close to 0, that meansthe car found a relatively straight lane line, it does not need to steer with sharp angle, then we have smaller value to adjust the duty cycle of PWM signal of the motor; otherwise
+
+There are good online resources to learn basic concept of [PID control](https://www.youtube.com/watch?v=4Y7zG48uHRo) and [Pulse-Width Modulation](https://howtomechatronics.com/tutorials/arduino/arduino-dc-motor-control-tutorial-l298n-pwm-h-bridge/)
+
+Once I got predicted (x,y) value from the neural network model, I applied classic [Propotional-Derivative Control](https://en.wikipedia.org/wiki/PID_controller) to converting **predicted (x,y) value** to **duty cycle of PWM signal of the 4 DC motors**.
+
+The car speed is regulated by 2 factors :
+* predicted y value
+  * the smaller it is (close to -1), the faster the car will move forward,
+  * it means the car can see the next centroid of the lane line far from its current position.
+* predicted x value,
+  * if x is close to 0, that means the car found a relatively straight lane line, the car does not need to make a sharp turn, the duty cycle of PWM signal on both sides of DC motors will be similar.
+  * if x is closer to either end (1, or -1), then the steering angle will become sharper. duty cycle of PWM signal on one side will be much larger than the other side .
+
+I found following parameters for each term of PD control (Propotional, Derivative) working together well. (following code from [HERE](main.cc#L69))
+```
+    float __dt  =  1.0 * PWM_PERIOD_US * NUM_PWM_PERIODS_FOR_EACH_FRAME;
+    float kp_xa =  1.0 * (90 + 5) * 0.35 ;
+    float kp_xb = -1.0 * (90 + 5) * 0.35 ;
+    float kd_xa =  1.0 * (90 + 5) * 280.0 ;
+    float kd_xb = -1.0 * (90 + 5) * 280.0 ;
+    float kp_y  =        (90 + 5) * 0.47 ;
+    
+    float error_x  =  lane_centroid_log.back().x ;
+    float error_y  = (lane_centroid_log.back().y * -1.0 + 1) / 2 + 0.05;
+    float error_de_dt = (error_x - pre_error_x) / __dt ;
+
+    float p_xa = error_x * kp_xa;
+    float p_xb = error_x * kp_xb;
+    float d_xa = error_de_dt * kd_xa;
+    float d_xb = error_de_dt * kd_xb;
+    float p_y  = error_y * kp_y;
+    
+    float pid_out_a = p_xa + p_y + d_xa ;
+    float pid_out_b = p_xb + p_y + d_xb ;
+```
+Basically, ```p_xa``` and ```p_xb``` represent **Propotional term** for x ; ```p_y``` represent **Propotional term** for y, ```kp_*``` means parameters we tried.
+
 
 
 ### Get it Together
 My lane-line application code can be briefly seperated to 2 parts, managed by 2 different threads
-* one is for always polling the camera to see any captured new frame comes out
-* the other one is for all other tasks like 
-  * take the new captured frame, pre-process it, feed it into our trained neural network model, get predicted (x,y) pair of value from the model. 
-  * convert the predicted (x,y) value into duty cycle of PWM signal of the 4 DC motors, using Propotional-Derivative Control
+* one is for always polling the camera, to see any captured new frame comes out, then write up-to-date frame into a shared ``cv:Mat```
+* the other one is for all other tasks like :
+  * take the new captured frame, pre-process it, 
+  * feed pre-processed / normalized frame into our trained neural network model as described above,
+  * get predicted (x,y) pair of value from the model. 
+  * convert the predicted (x,y) value into duty cycle of PWM signal of the 4 DC motors, using Propotional-Derivative Control.
+  * drive PWM signals of L298N Controller based on the duty cycle we previously got. 
+
+The 2 threads share the same frame object ```cv:Mat``` protected by mutex.
+  
 It works well as shown in following clip :
 
 [![click this picture to see result](image/youtube_video_lane_detection_2.png)](https://www.youtube.com/watch?v=RRzkYEv9kbw)
 
 
-#### There are still something to improve
-* the prediction is not 100% accurate 
+#### There is still something to improve
+* The prediction is not 100% accurate 
+  * maybe we need more sophisticated technique to converge training and tetsing losses, will check how optimizers are implemented in Python API. 
 * speed issue
+  * in this project I used cheap DC motors max. working voltage = 6V , and 1.2 Volt. for a fully-recharged battery   (6 battery in total, get 7.2 Volt. at least)
 * need more efficient way to group dataset for training / validation / test procedures
-
+  * python K-mean clustering application takes 6 hours (k=50~60) to group entire dataset.
 
