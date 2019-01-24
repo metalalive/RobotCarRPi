@@ -106,19 +106,8 @@ Due to limited resource on Raspberry PI, I cannot run that complicated neural ne
 The 3 options listed above provide very similar training errors, I apply the first one to my neural network model.
 
 
-
-### Training the model
-I trained the model a few times on a dual-core intel i5 laptop, each time it took about 3 hrs.
-
-In the beginning, we found the training losses can vary widely, e.g. we got previous training loss = 0.06 while current training loss = 0.110 , it turns out the reason could be skewed training set, since every time we randomly chose image examples from the entire dataset for training process, sometimes we were lucky to get a training set covering almost all kinds of lane-line conditions, while sometimes we got a training set covering only a few types of lane condition (e.g. the lanes are always in the middle in our training set).
-
-To avoid inbalanced training/test set , we tried grouping the dataset by k-mean cluster algorithm (with k = 60), then check if we need to add more images of specific type. (e.g. lack of image example with sharp left curvature ...... etc) 
-
-After this procedure the training process works better, finally we managed to get trainning loss between 0.06 ~ 0.08
-
-
 ### Training / Testing Loss, and Accurancy
-Here is how I determine training / testing loss, for each image example of **training set**, we have :
+Before I train the model, I need to determine training / testing loss, and how do I measure accurancy. For each image example of **training set**, we have :
 
 | variable name | description |
 |---------------|-------------|
@@ -141,18 +130,27 @@ accurate_pred =
 accurancy = sum(accurate_pred) / num_of_examples_testset
 ```
 
-I managed to get 85% ~ 87% accurancy when predicting images from testing set using the trained neural network model
+
+
+### Training the model
+I trained the model a few times on a dual-core intel i5 laptop, each time it took about 3 hrs.
+
+In the beginning, we found the training losses can vary widely, e.g. we got previous training loss = 0.06 while current training loss = 0.120 , it turns out the reason could be skewed training set, since every time we randomly chose image examples from the entire dataset for training process, sometimes we were lucky to get a training set covering almost all kinds of lane-line conditions, while sometimes we got a training set covering only a few types of lane condition (e.g. the lanes are always in the middle in our training set).
+
+To avoid inbalanced training/test set , we tried grouping the dataset by the similar lane-line situation, using k-mean cluster algorithm (with k = 60), then check if we need to add more images of specific types. (e.g. lack of image example with sharp left curvature ...... etc) 
+
+After this procedure the training processes works more stable, I managed to get trainning loss between 0.06 ~ 0.08, and 85% ~ 87% accurancy when predicting images from testing set using the trained neural network model
 
 
 
-### save the model to protobuf text file
+### Save the model to protobuf text file
 We can make use of Tensorflow C++ function ```tensorflow::WriteTextProto()``` to save the graph to protobuf-format text/binary file. To invoke this function you must prepare few arguments :
 * ``` tensorflow::Env ``` object, created by static function ```tensorflow::Env::Default()```
 * string path to the protobuf file, it can be ```std::string```
 * get the object ```tensorflow::GraphDef```  from ```tensorflow::Scope::ToGraphDef()``` after you defined all the operations in the object ```tensorflow::Scope``` 
 
 
-### save the parameter matrices to checkpoint files
+### Save the parameter matrices to checkpoint files
 A checkpoint in tensorflow framework is like a trained parameter matrix, ```tensorflow::WriteTextProto()``` will NOT save trained parameters to protobuf file, fortunately we have ```tensorflow::checkpoint::TensorSliceWriter``` instead, to do so you must do the following :
 * get currently trained parameters by performing this:
   ```
@@ -166,7 +164,7 @@ A checkpoint in tensorflow framework is like a trained parameter matrix, ```tens
   * create an object ```tensorflow::TensorSlice``` by calling ```tensorflow::TensorSlice::ParseOrDie("-:-")```, it seems that the only argument of ```tensorflow::TensorSlice::ParseOrDie``` will be internally analyzed e.g. ```-:-``` means taking all items of a matrix. if users only want part of trained parameter matrix e.g. to only take 2nd column of all rows, then the string argument would be likely ```-:2``` , I haven't figured out such advanced uasge of ```tensorflow::TensorSlice::ParseOrDie```.
 
 
-### load the trained model on Raspberry PI
+### Load the trained model on Raspberry PI
 To load tensorflow graph model & corresponding trained parameters, you have ```tensorflow::ReadTextProto``` and ```tensorflow::checkpoint::TensorSliceReader```
 * the usage of ```tensorflow::ReadTextProto``` is quite similar to ```tensorflow::WriteTextProto()```, please check out [models::restore_from_file()](src/models.cc#L534) in this repository.
 * To load trained parameters to the model, using ```tensorflow::checkpoint::TensorSliceReader``` , you need to :
@@ -176,9 +174,15 @@ To load tensorflow graph model & corresponding trained parameters, you have ```t
 ### PID control
 
 
-
+### Get it all together
+My lane-line application code can be briefly seperated to 2 parts, managed by 2 different threads, one is for always polling the camera to see any captured new frame comes out, while the other one is to take the new captured frame, pre-process it, and feed it into our trained neural network model. It works well as shown in following clip :
 
 [![click this picture to see result](image/youtube_video_lane_detection_2.png)](https://www.youtube.com/watch?v=RRzkYEv9kbw)
 
+
 #### There are still something to improve
+* the prediction is not 100% accurate 
+* speed issue
+* need more efficient way to group dataset for training / validation / test procedures
+
 
