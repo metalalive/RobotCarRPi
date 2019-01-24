@@ -151,31 +151,55 @@ We can make use of Tensorflow C++ function ```tensorflow::WriteTextProto()``` to
 
 
 ### Save the parameter matrices to checkpoint files
-A checkpoint in tensorflow framework is like a trained parameter matrix, ```tensorflow::WriteTextProto()``` will NOT save trained parameters to protobuf file, fortunately we have ```tensorflow::checkpoint::TensorSliceWriter``` instead, to do so you must do the following :
+A checkpoint in tensorflow framework represents a set of trained parameters, ```tensorflow::WriteTextProto()``` will NOT save trained parameters into protobuf file, fortunately we have ```tensorflow::checkpoint::TensorSliceWriter``` instead, to do so you must do the following :
 * get currently trained parameters by performing this:
   ```
-  tensorflow::Session::Run({}, {"name_of_param_mtx"}, {}, &output_tensor)
+  tensorflow::Session::Run({}, {"name_of_param_mtx1", "name_of_param_mtx2",}, {}, &output_tensor)
   ```
-  while output_tensor is a ```std::vector``` of ```tensorflow::Tensor``` with 6 elements (Tensors).
-* copy raw data from each of ```tensorflow::Tensor``` to ```tensorflow::checkpoint::TensorSliceWriter```, you must prepare:
+  Note "name_of_param_mtx1" is the string label of your parameter matrix, here in my case it's just string label of ```tensorflow::Variable``` (please see [example here](src/models.cc#L493)) , the output_tensor is a list of ```tensorflow::Tensor``` elements copying the value of trained parameter matrix.
+* copy raw data from each ```tensorflow::Tensor``` to ```tensorflow::checkpoint::TensorSliceWriter```, you must prepare:
   * base address of the parameter raw data by calling ```tensorflow::Tensor.tensor_data().data()```
   * shape of each ```tensorflow::Tensor``` , by calling ```tensorflow::Tensor::dim_size(NUM_DIMENSION)```. For eaxmple a 7x17 2D parameter matrix, NUM_DIMENSION can be 0 and 1, where ```tensorflow::Tensor::dim_size(0)``` is 7 and ```tensorflow::Tensor::dim_size(1)``` is 17.
-  * name of this checkpoint, naming must be unique from other checkpoints
+  * name of this checkpoint, the name must be unique from other checkpoints in one file
   * create an object ```tensorflow::TensorSlice``` by calling ```tensorflow::TensorSlice::ParseOrDie("-:-")```, it seems that the only argument of ```tensorflow::TensorSlice::ParseOrDie``` will be internally analyzed e.g. ```-:-``` means taking all items of a matrix. if users only want part of trained parameter matrix e.g. to only take 2nd column of all rows, then the string argument would be likely ```-:2``` , I haven't figured out such advanced uasge of ```tensorflow::TensorSlice::ParseOrDie```.
 
 
 ### Load the trained model on Raspberry PI
 To load tensorflow graph model & corresponding trained parameters, you have ```tensorflow::ReadTextProto``` and ```tensorflow::checkpoint::TensorSliceReader```
 * the usage of ```tensorflow::ReadTextProto``` is quite similar to ```tensorflow::WriteTextProto()```, please check out [models::restore_from_file()](src/models.cc#L534) in this repository.
-* To load trained parameters to the model, using ```tensorflow::checkpoint::TensorSliceReader``` , you need to :
-  * before you train the model, make sure to create ```tensorflow::ops::Placeholder``` as the entry to parameter matrices inside neural network model, then create ```tensorflow::ops::Assign``` to define the operation that assigns the value from ```tensorflow::ops::Placeholder``` to the parameter matrices in ```tensorflow::ops::Variable``` of the neural network model.
+* To load trained parameters to the model is a little more complicated, you need to :
+  * before you train the model, create ```tensorflow::ops::Placeholder``` as the entry to parameter matrices ```tensorflow::ops::Variable``` inside neural network model, then define the operation ```tensorflow::ops::Assign``` which assigns the value from ```tensorflow::ops::Placeholder``` to the parameter matrices in ```tensorflow::ops::Variable``` of the neural network model. Your code may look like following :
+    ```
+    tensorflow::Scope  root = tensorflow::Scope::NewRootScope();
+  
+    tensorflow::Output w1 = tensorflow::ops::Variable (root.WithOpName("w1"), {num_fc_inl, num_fc_l1}, tensorflow::DT_FLOAT);
+    auto trained_w1 = tensorflow::ops::Placeholder (root.WithOpName("chkptr0_entry"), tensorflow::DataTypeToEnum<float>::v()); 
+    auto assigned_trained_w1 = tensorflow::ops::Assign (root.WithOpName("assigned_chkptr0"), w1, trained_w1);
+  
+    ```
+    in the code sample above, the assigning operation ```assigned_trained_w1``` is like ``` w1 = trained_w1 ```, you can consider this as another entry to initializing the parameter matrix.
+  * when restoring the trained model, load checkpoint file by ```tensorflow::checkpoint::TensorSliceReader reader ("PATH/TO/CHECKPOINT_FILE")```
+  * search for each parameter matrix by
+    * ```tensorflow::checkpoint::TensorSliceReader::HasTensor()```
+    * ```tensorflow::checkpoint::TensorSliceReader::GetTensor(CHECKPOINT_STR_LABEL, out_tensor)```
+    * and the checkpoint label: CHECKPOINT_STR_LABEL, you must give the labels you used when saving checkpoints with ```tensorflow::checkpoint::TensorSliceWriter```
+  * then you will get ```tensorflow::Tensor``` out_tensor, which contains trained parameters, finally initialize parameters of the model with out_tensor : ```tensorflow::Session::Run({{LABEL_FOR_PARAM_MTX, out_tensor}}, {ASSIGN_OPS_NAME}, {}, nullptr) ```
 
 
-### PID control
+### Propotional-Derivative Control
+Once I got **predicted (x,y) pair of value** from the neural network model, then I apply classic [Propotional-Derivative Control](https://en.wikipedia.org/wiki/PID_controller) to converting it to **duty cycle of PWM signal of the 4 DC motors**.
+The (x,y) output value is in the range \[-1, 1\] , the speed is regulated by 2 factors :
+* predicted y value, the smaller it is, the faster the car will move (it means the car can see the next centroid of the lane line far from its current position)
+* predicted x value, if x is close to 0, that meansthe car found a relatively straight lane line, it does not need to steer with sharp angle, then we have smaller value to adjust the duty cycle of PWM signal of the motor; otherwise
 
 
-### Get it all together
-My lane-line application code can be briefly seperated to 2 parts, managed by 2 different threads, one is for always polling the camera to see any captured new frame comes out, while the other one is to take the new captured frame, pre-process it, and feed it into our trained neural network model. It works well as shown in following clip :
+### Get it Together
+My lane-line application code can be briefly seperated to 2 parts, managed by 2 different threads
+* one is for always polling the camera to see any captured new frame comes out
+* the other one is for all other tasks like 
+  * take the new captured frame, pre-process it, feed it into our trained neural network model, get predicted (x,y) pair of value from the model. 
+  * convert the predicted (x,y) value into duty cycle of PWM signal of the 4 DC motors, using Propotional-Derivative Control
+It works well as shown in following clip :
 
 [![click this picture to see result](image/youtube_video_lane_detection_2.png)](https://www.youtube.com/watch?v=RRzkYEv9kbw)
 
