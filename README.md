@@ -222,16 +222,16 @@ I found following parameters for each term of PD control (Propotional, Derivativ
     float pid_out_a = p_xa + p_y + d_xa ;
     float pid_out_b = p_xb + p_y + d_xb ;
 ```
-Basically, ```p_xa``` and ```p_xb``` represent **Propotional term** for x ; ```p_y``` represent **Propotional term** for y, ```kp_*``` means parameters we tried.
+in the sample code above, ```p_xa``` and ```p_xb``` represent **Propotional term** for x ; ```p_y``` represent **Propotional term** for y, ```kp_*``` means parameters we tried.
 
 
 
 ### Get it Together
-My lane-line application code can be briefly seperated to 2 parts, managed by 2 different threads
-* one is for always polling the camera, to see any captured new frame comes out, then write up-to-date frame into a shared ``cv:Mat```
+My lane-line application code can be briefly seperated to 2 parts, managed by 2 different threads :
+* one thread is used for always polling the camera, capturing new frame then writing into a shared ```cv:Mat```
 * the other one is for all other tasks like :
-  * take the new captured frame, pre-process it, 
-  * feed pre-processed / normalized frame into our trained neural network model as described above,
+  * pre-process the new captured frame ```cv:Mat``` (resize/normalize) 
+  * feed pre-processed frame into our trained neural network model
   * get predicted (x,y) pair of value from the model. 
   * convert the predicted (x,y) value into duty cycle of PWM signal of the 4 DC motors, using Propotional-Derivative Control.
   * drive PWM signals of L298N Controller based on the duty cycle we previously got. 
@@ -245,9 +245,9 @@ It works well as shown in following clip :
 
 #### There is still something to improve
 * The prediction is not 100% accurate 
-  * maybe we need more sophisticated technique to converge training and tetsing losses, will check how optimizers are implemented in Python API. 
+  * I would probably try more sophisticated technique to converge training and tetsing losses, would check how optimizers are implemented in tensorflow Python API in the future. 
 * speed issue
-  * in this project I used cheap DC motors max. working voltage = 6V , and 1.2 Volt. for a fully-recharged battery   (6 battery in total, get 7.2 Volt. at least)
+  * In this project I used cheap DC motors with max. working voltage 6 Volt. , and 6 NiMH batteries (1.2 Volt. for each, 7.2 Volt. in total). I would try better motors, LiPO batteries to increase voltage, and increase FPS of my PI camera to 60 or 90, if I'd like to join race competitions like Dockey Car or Formula PI... 
 * need more efficient way to group dataset for training / validation / test procedures
-  * python K-mean clustering application takes 6 hours (k=50~60) to group entire dataset.
+  * K-mean clustering application in python takes 6 hours (k=50~60) to group entire dataset.
 
