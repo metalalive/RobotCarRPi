@@ -20,6 +20,10 @@
 // following parameter defines number of PWM_PERIOD_US time intervals to use for each captured frame.
 #define NUM_PWM_PERIODS_FOR_EACH_FRAME  2
 
+// in previous experiment, the 2 threads act like producer & consumer, and work together the best
+// if the camera-polling thread can capture up-to-date frame for timely use in another thread (in dataset_handler & model)
+#define CAM_FRAME_BUFFER_QUEUE_SIZE  1
+
 // global mutex shared among main (prediction) thread
 // and polling thread (keep reading frames from camera)
 std::mutex mtx;
@@ -46,7 +50,7 @@ void* polling_cam_frame (void* args)
         cv::rotate (frame, rotated_180_frm, cv::ROTATE_180);
         frame.release();
         mtx.lock();
-        if (framebuffer->size() >= 1) {
+        if (framebuffer->size() >= CAM_FRAME_BUFFER_QUEUE_SIZE) {
             framebuffer->front().release();
             framebuffer->pop();
         }
@@ -260,7 +264,7 @@ int  main (int argc, char ** argv)
     cv::VideoCapture cap;
     init_camera (cap, img_src_path, frame_width, frame_height);
 
-    // here we assume framebuffer is a FIFO queue of size 5
+    // the size of framebuffer must be no more than CAM_FRAME_BUFFER_QUEUE_SIZE
     std::queue<cv::Mat> framebuffer;
 
     // data & neural network model handling
